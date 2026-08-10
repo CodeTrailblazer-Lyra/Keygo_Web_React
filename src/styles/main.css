@@ -1,0 +1,638 @@
+/* ============================================
+   KeyGo - 激活码分发管理系统 (Naive UI 适配版 / SPA)
+   ============================================ */
+
+:root {
+  --primary: #6366f1;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ===== Apple Liquid Glass 配方（iOS 26）===== */
+  /* 主表面：通透渐变背景 + 高模糊 + 白色高光描边 + 内外发光 */
+  --lg-blur: blur(40px) saturate(200%);
+  --lg-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.3));
+  --lg-border: 1px solid rgba(255, 255, 255, 0.55);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 8px 32px rgba(0, 0, 0, 0.06);
+  /* 强调色（紫色）指示器 */
+  --lg-indicator-bg: linear-gradient(180deg, rgba(99, 102, 241, 0.22), rgba(99, 102, 241, 0.08));
+  --lg-indicator-border: 1px solid rgba(255, 255, 255, 0.4);
+  --lg-indicator-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 16px rgba(99, 102, 241, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Noto Sans SC',
+    sans-serif;
+  /* 淡渐变背景，让液态玻璃有内容可模糊 */
+  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 38%, #fdf2f8 100%);
+  background-attachment: fixed;
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* ===== 主容器 ===== */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.page-header-block {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ===== 激活码展示 ===== */
+.code-chip {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  color: #334155;
+  word-break: break-all;
+}
+
+/* ===== 公告栏 ===== */
+.announcement-list {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ===== 申领区域 ===== */
+.claim-section {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.claim-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  background: #f1f5f9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.claim-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.claim-desc {
+  color: #64748b;
+  margin: 0 0 28px;
+  font-size: 15px;
+}
+
+/* ===== 拖拽上传区 ===== */
+.drop-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+  background: #f8fafc;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.drop-zone-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.drop-zone-text {
+  color: #475569;
+  font-weight: 500;
+}
+.drop-zone-text span {
+  color: #6366f1;
+  text-decoration: underline;
+}
+.drop-zone-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
+}
+
+/* ===== 申领结果展示 ===== */
+.claim-code-display {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  padding: 16px 24px;
+  background: #f0fdf4;
+  color: #059669;
+  border-radius: 12px;
+  display: inline-block;
+  white-space: nowrap; /* 强制单行 */
+  max-width: 100%; /* 不超出容器，字号由 JS 自适应 */
+  user-select: all;
+  border: 1px solid #bbf7d0;
+}
+
+/* ===== 批量获取结果 ===== */
+.batch-result-box {
+  max-height: 280px;
+  overflow-y: auto;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.batch-result-item {
+  padding: 8px 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #059669;
+  font-weight: 600;
+  user-select: all;
+  border-radius: 8px;
+}
+
+.batch-result-item:hover {
+  background: #ecfdf5;
+}
+
+/* ===== 表格空状态 ===== */
+.table-empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: #94a3b8;
+}
+
+/* ============================================
+   Naive UI：数据表格 Liquid Glass 行效果（全局）
+   ============================================ */
+
+/* 行悬停液态玻璃（悬浮即亮，无需勾选） */
+.n-data-table-td {
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.n-data-table-tr:hover .n-data-table-td {
+  /* 不加 backdrop-filter，避免与外层卡片玻璃堆叠导致变深变浊 */
+  background: linear-gradient(
+    180deg,
+    rgba(99, 102, 241, 0.16),
+    rgba(99, 102, 241, 0.06)
+  ) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.15) !important;
+}
+
+/* 行圆润：首尾单元格圆弧化 */
+.n-data-table-tr .n-data-table-td:first-child,
+.n-data-table-tr .n-data-table-th:first-child {
+  border-radius: 12px 0 0 12px;
+}
+.n-data-table-tr .n-data-table-td:last-child,
+.n-data-table-tr .n-data-table-th:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+/* 表头文字居中 */
+.n-data-table-th {
+  text-align: center !important;
+}
+.n-data-table-th__title {
+  justify-content: center;
+}
+
+/* ============================================
+   全局动画
+   ============================================ */
+
+/* 页面路由切换 */
+.page-enter-active {
+  transition:
+    opacity 0.3s var(--ease-out),
+    transform 0.3s var(--ease-out);
+}
+.page-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* 元素淡入上浮 */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 申领图标轻柔浮动 */
+@keyframes gentle-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.claim-icon {
+  animation: gentle-float 3.5s ease-in-out infinite;
+}
+
+/* 品牌图标 hover */
+.app-brand-icon {
+  transition: transform 0.25s var(--ease-out);
+}
+.app-brand:hover .app-brand-icon {
+  transform: scale(1.1) rotate(-6deg);
+}
+
+/* 卡片 hover 微浮 */
+.stat-card,
+.claim-card,
+.table-card {
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+.stat-card:hover,
+.claim-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Naive UI n-card 入场 */
+.n-card {
+  animation: fade-in-up 0.35s var(--ease-out);
+}
+
+/* 按钮点击微缩 */
+.n-button {
+  transition: transform 0.12s ease;
+}
+.n-button:active {
+  transform: scale(0.96);
+}
+
+/* 导航项点击反馈 */
+.desktop-nav-item:active,
+.mobile-tab-item:active,
+.drawer-menu-item:active {
+  transform: scale(0.96);
+}
+
+/* 移动端 Tab 激活态图标放大 */
+.mobile-tab-item.active .mobile-tab-icon,
+.drawer-menu-item.active .drawer-menu-icon {
+  transform: scale(1.15);
+  transition: transform 0.25s var(--ease-out);
+}
+
+/* 申领结果入场 */
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.claim-code-display {
+  animation: pop-in 0.4s var(--ease-out);
+}
+
+/* 拖拽区边框过渡 */
+.drop-zone {
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease;
+}
+.drop-zone:hover {
+  transform: scale(1.01);
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  html,
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .page-container {
+    padding: 16px 12px;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    max-width: 100%;
+  }
+
+  .page-header-block {
+    margin-bottom: 16px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .claim-section {
+    padding: 28px 12px;
+  }
+
+  .claim-icon {
+    width: 72px;
+    height: 72px;
+    font-size: 32px;
+  }
+
+  .claim-title {
+    font-size: 20px;
+  }
+
+  .stat-card-inner {
+    gap: 10px;
+  }
+
+  .stat-icon {
+    font-size: 24px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .drop-zone {
+    padding: 28px 16px;
+  }
+
+  .drop-zone-icon {
+    font-size: 36px;
+  }
+
+  .code-chip {
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  .claim-code-display {
+    font-size: 16px;
+    letter-spacing: 1px;
+    padding: 12px 16px;
+  }
+
+  .batch-result-box {
+    max-height: 220px;
+    padding: 8px;
+  }
+
+  .batch-result-item {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* ===== Naive UI：表格移动端适配 ===== */
+  /* 表格行高与内边距 */
+  .n-data-table .n-data-table-base-table .n-data-table-tr {
+    min-height: 52px;
+  }
+  .n-data-table-th,
+  .n-data-table-td {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    font-size: 13px !important;
+  }
+  /* 横向滚动顺滑 */
+  .n-data-table-base-scroll-wrapper {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .n-data-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ===== Naive UI：Modal / Dialog 移动端适配 ===== */
+  .n-modal {
+    max-width: 92vw !important;
+    width: 92vw !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .n-card-modal,
+  .n-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .n-card-modal .n-card-header {
+    padding: 16px 16px 12px !important;
+    font-size: 16px !important;
+  }
+  .n-card-modal .n-card-content {
+    padding: 0 16px !important;
+  }
+  .n-card-modal .n-card-footer {
+    padding: 12px 16px 16px !important;
+  }
+  /* Dialog 按钮尺寸缩小 */
+  .n-dialog .n-button {
+    font-size: 14px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* ===== Naive UI：输入框、表单移动端适配 ===== */
+  .n-input,
+  .n-input-number {
+    font-size: 16px !important; /* 防止 iOS 聚焦放大 */
+  }
+  .n-input__input-el {
+    font-size: 16px !important;
+  }
+  .n-form-item {
+    margin-bottom: 16px !important;
+  }
+  .n-form-item-label {
+    font-size: 13px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* ===== Naive UI：Card 组件移动端适配 ===== */
+  .n-card {
+    border-radius: 14px !important;
+  }
+  .n-card-header {
+    padding: 14px 14px 10px !important;
+  }
+  .n-card-header__main {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+  .n-card-content {
+    padding: 0 14px !important;
+  }
+  .n-card-footer {
+    padding: 10px 14px 14px !important;
+  }
+
+  /* ===== Naive UI：按钮移动端适配 ===== */
+  .n-button {
+    font-size: 14px !important;
+  }
+  .n-button--large {
+    height: 44px !important;
+  }
+
+  /* ===== Naive UI：Tabs 移动端适配 ===== */
+  .n-tabs {
+    font-size: 15px !important;
+  }
+  .n-tabs-tab {
+    padding: 10px 14px !important;
+  }
+
+  /* ===== Naive UI：Tag 移动端适配 ===== */
+  .n-tag {
+    font-size: 12px !important;
+  }
+
+  /* ===== Naive UI：Pagination 移动端适配 ===== */
+  .n-pagination {
+    padding: 8px 0 !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .n-pagination-item {
+    min-width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* ===== Naive UI：Space 换行优化 ===== */
+  .n-space--row {
+    flex-wrap: wrap;
+  }
+
+  /* ===== Naive UI：RadioGroup 移动端适配 ===== */
+  .n-radio-button {
+    font-size: 13px !important;
+    padding: 0 10px !important;
+    height: 32px !important;
+  }
+
+  /* ===== Naive UI：Badge 移动端适配 ===== */
+  .n-badge-sup {
+    font-size: 11px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    padding: 0 4px !important;
+  }
+
+  /* ===== Naive UI：Alert 移动端适配 ===== */
+  .n-alert {
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+  }
+
+  /* ===== Naive UI：Select 移动端适配 ===== */
+  .n-base-selection {
+    font-size: 14px !important;
+  }
+  .n-base-selection-label {
+    font-size: 14px !important;
+  }
+
+  /* ===== Naive UI：Drawer 移动端适配 ===== */
+  .n-drawer {
+    max-width: 86vw !important;
+  }
+  .n-drawer-content {
+    padding: 16px !important;
+  }
+  .n-drawer-header {
+    padding: 0 0 12px !important;
+    margin-bottom: 12px !important;
+  }
+  .n-drawer-header__title {
+    font-size: 18px !important;
+  }
+
+  /* ===== Naive UI：表格卡片工具栏左右留白 ===== */
+  .n-data-table-header,
+  .n-card-header {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}

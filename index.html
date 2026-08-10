@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" href="/favicon.ico">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="KeyGo - 激活码分发管理系统">
+  <title>KeyGo</title>
+
+  <!-- 资源预连接：提前建立与阿里云 CDN 的 DNS + TCP + TLS 连接 -->
+  <link rel="preconnect" href="https://registry.npmmirror.com" crossorigin>
+  <link rel="dns-prefetch" href="https://registry.npmmirror.com">
+
+  <script type="importmap">
+    {
+      "imports": {
+        "vue": "https://registry.npmmirror.com/vue/3.5.41/files/dist/vue.esm-browser.prod.js",
+        "vue-router": "https://registry.npmmirror.com/vue-router/5.2.0/files/dist/vue-router.esm-browser.prod.js",
+        "pinia": "https://registry.npmmirror.com/pinia/4.0.2/files/dist/pinia.esm-browser.prod.js"
+      }
+    }
+  </script>
+
+  <!-- 预加载关键依赖（vue 是所有模块的基础，优先下载） -->
+  <link rel="modulepreload" href="https://registry.npmmirror.com/vue/3.5.41/files/dist/vue.esm-browser.prod.js"
+    crossorigin>
+
+  <!-- 首屏加载动画，提升感知性能 -->
+  <style>
+    #app:empty {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #app:empty::after {
+      content: '';
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: app-spin 0.7s linear infinite;
+    }
+
+    @keyframes app-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
