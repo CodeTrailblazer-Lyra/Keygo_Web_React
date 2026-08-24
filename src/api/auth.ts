@@ -23,10 +23,7 @@ export async function logout(): Promise<void> {
 }
 
 /** 注册（需管理员审核） */
-export async function register(
-  username: string,
-  password: string,
-): Promise<void> {
+export async function register(username: string, password: string): Promise<void> {
   await request.post('/api/v1/auth/register', { username, password })
 }
 

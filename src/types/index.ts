@@ -79,3 +79,15 @@ export interface Stats {
   available: number
   used: number
 }
+
+/** 使用单位（获取激活码时可选择，选中则写入激活码备注） */
+export interface UsageUnit {
+  id: number
+  name: string
+  createTime: string | null
+}
+
+/** 使用单位批量导入结果 */
+export interface UnitImportResult {
+  imported: number
+}

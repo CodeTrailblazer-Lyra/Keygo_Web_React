@@ -1,9 +1,6 @@
 import axios from 'axios'
-import router from '@/router'
-import { createDiscreteApi } from 'naive-ui'
-
-// 非组件环境可用的全局 message（用于 401 全局提示）
-const { message: globalMessage } = createDiscreteApi(['message'])
+import { isOnLoginPath, navigateTo, notifyUnauthorized } from '@/router/navigation'
+import { messageError } from '@/utils/messageBridge'
 
 // 退出登录中：此期间的 401 全部静默处理，不提示不跳转
 let isLoggingOut = false
@@ -115,22 +112,23 @@ request.interceptors.response.use(
         return Promise.reject(error)
       }
       // 当前已在登录页：只需标记，不跳转不提示
-      if (router.currentRoute.value.name !== 'login') {
+      if (!isOnLoginPath()) {
         // 全局只提示一次（防抖，避免多个在途请求重复弹窗）
         if (!unauthToastTimer) {
           unauthToastTimer = setTimeout(() => {
             unauthToastTimer = null
           }, 3000)
-          globalMessage.error(getErrorMessage(error))
+          messageError(getErrorMessage(error))
         }
+        // 清理本地登录态
+        notifyUnauthorized()
         // 防抖跳转登录页
         if (!unauthRedirecting) {
           unauthRedirecting = true
-          router.push('/login').finally(() => {
-            setTimeout(() => {
-              unauthRedirecting = false
-            }, 1000)
-          })
+          navigateTo('/login')
+          setTimeout(() => {
+            unauthRedirecting = false
+          }, 1000)
         }
       }
     }

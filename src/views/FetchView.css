@@ -1,0 +1,203 @@
+/* 统计卡片网格（等价于 Vue 版 n-grid cols="3" x-gap=12 y-gap=12） */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  border-radius: 14px;
+}
+
+.stat-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stat-icon {
+  font-size: 32px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.stat-value-green {
+  color: #16a34a;
+}
+
+.stat-value-orange {
+  color: #ea580c;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.claim-card {
+  border-radius: 14px;
+}
+
+.announcement-item {
+  border-radius: 14px;
+}
+
+.announcement-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.announcement-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.announcement-meta {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.claim-modal-body {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.claim-modal-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.claim-modal-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.claim-modal-sub {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ===== 使用单位选择（可选，默认为空） ===== */
+.claim-unit-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 16px 0 4px;
+  text-align: left;
+}
+
+.claim-unit-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.claim-modal-error {
+  color: #ef4444;
+  font-size: 14px;
+  margin: 0;
+}
+
+.claim-result-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+.claim-modal-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+/* ===== 暗色主题 ===== */
+html[data-theme='dark'] .stat-value {
+  color: #f1f5f9;
+}
+
+html[data-theme='dark'] .stat-label {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .announcement-meta {
+  color: #64748b;
+}
+
+html[data-theme='dark'] .claim-modal-text {
+  color: #f1f5f9;
+}
+
+html[data-theme='dark'] .claim-modal-sub {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .claim-unit-label {
+  color: #94a3b8;
+}
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+  .stat-card-inner {
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .stat-icon {
+    font-size: 22px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .announcement-content {
+    gap: 6px;
+  }
+
+  .announcement-meta {
+    font-size: 11px;
+  }
+
+  .claim-modal-body {
+    padding: 8px 0;
+  }
+
+  .claim-modal-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+
+  .claim-result-icon {
+    font-size: 48px;
+  }
+
+  .claim-modal-text {
+    font-size: 15px;
+  }
+
+  .claim-modal-sub,
+  .claim-modal-error {
+    font-size: 13px;
+  }
+}

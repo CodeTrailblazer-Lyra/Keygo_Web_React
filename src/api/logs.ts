@@ -16,10 +16,7 @@ export async function announcements(): Promise<Announcement[]> {
 }
 
 /** 发布公告（仅管理员） */
-export async function publishAnnouncement(
-  content: string,
-  pinned: boolean,
-): Promise<void> {
+export async function publishAnnouncement(content: string, pinned: boolean): Promise<void> {
   await request.post('/api/v1/announcements', { content, pinned })
 }
 

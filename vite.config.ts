@@ -1,17 +1,11 @@
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import vueJsx from '@vitejs/plugin-vue-jsx'
-import vueDevTools from 'vite-plugin-vue-devtools'
+import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    vueJsx(),
-    vueDevTools(),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -29,12 +23,20 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
-      // vue/vue-router/pinia 走阿里云 CDN（importmap）；naive-ui 及其依赖本地打包
-      external: ['vue', 'vue-router', 'pinia'],
+      // CDN 外部化：antd / icons / patch / react 系列通过 index.html importmap 加载
+      external: [
+        'react',
+        'react/jsx-runtime',
+        'react-dom',
+        'react-dom/client',
+        'antd',
+        '@ant-design/icons',
+        '@ant-design/v5-patch-for-react-19',
+      ],
       output: {
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
-            return 'naive-ui'
+            return 'vendor'
           }
         },
       },

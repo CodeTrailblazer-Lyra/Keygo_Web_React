@@ -1,0 +1,78 @@
+/* ===== 瀑布流布局：使用单位 + 系统公告 ===== */
+/* 宽屏两列按内容高度排布（较矮的卡片顶部对齐、不留空洞），窄屏自动退化为单列堆叠 */
+.admin-masonry {
+  column-gap: 16px;
+  margin-top: 16px;
+}
+
+.admin-masonry > .ant-card {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+
+/* ===== 系统公告卡片头（标题 + 发布公告按钮） ===== */
+.announce-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* ===== 使用单位 ===== */
+.units-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.units-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.units-add-input {
+  width: 240px;
+}
+
+.units-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ===== 暗色主题 ===== */
+html[data-theme='dark'] .units-hint {
+  color: #94a3b8;
+}
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+  .units-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .units-actions {
+    width: 100%;
+  }
+
+  .units-add-input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+/* 宽屏启用瀑布流两列；中窄屏保持单列（columns 默认 1） */
+@media (min-width: 992px) {
+  .admin-masonry {
+    columns: 2;
+  }
+}

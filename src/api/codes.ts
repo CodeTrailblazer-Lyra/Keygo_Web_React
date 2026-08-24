@@ -1,11 +1,5 @@
 import request from './request'
-import type {
-  BatchClaimResult,
-  ClaimResult,
-  CodeListResult,
-  ActivationCode,
-  Stats,
-} from '@/types'
+import type { ActivationCode, BatchClaimResult, ClaimResult, CodeListResult, Stats } from '@/types'
 
 export interface MyCodesResult {
   codes: ActivationCode[]
@@ -41,9 +35,13 @@ export async function listCodes(opts: CodeQueryOptions): Promise<CodeListResult>
   return res.data
 }
 
-/** 申领单个激活码 */
-export async function claimCode(): Promise<ClaimResult> {
-  const res = await request.post<ClaimResult>('/api/v1/codes/claim')
+/**
+ * 申领单个激活码
+ * @param unit 使用单位（可选）。非空时由后端写入该激活码的备注字段；
+ *             未选择（undefined）时后端保持备注原样不受影响。
+ */
+export async function claimCode(unit?: string): Promise<ClaimResult> {
+  const res = await request.post<ClaimResult>('/api/v1/codes/claim', unit ? { unit } : undefined)
   return res.data
 }
 
@@ -104,10 +102,7 @@ export async function myCodes(page: number, size: number): Promise<MyCodesResult
 }
 
 /** 导出激活码 Excel（条件放 body，返回文件流） */
-export async function exportCodes(opts: {
-  status?: string
-  keyword?: string
-}): Promise<Blob> {
+export async function exportCodes(opts: { status?: string; keyword?: string }): Promise<Blob> {
   const res = await request.post<Blob>('/api/v1/admin/codes/export', opts, {
     responseType: 'blob',
   })

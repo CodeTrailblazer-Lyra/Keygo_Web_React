@@ -1,63 +1,69 @@
-import { ref, computed } from 'vue'
-import { useMessage } from 'naive-ui'
+import { create } from 'zustand'
 import { changePassword } from '@/api/auth'
 import { getErrorMessage, isHandledError } from '@/api/request'
+import { messageError, messageSuccess } from '@/utils/messageBridge'
 
-interface PwdTarget {
+export interface PwdTarget {
   id: number
   username: string
 }
 
-const show = ref(false)
-const target = ref<PwdTarget | null>(null)
-const oldPwd = ref('')
-const newPwd = ref('')
-const newPwd2 = ref('')
-const loading = ref(false)
+interface PasswordModalState {
+  show: boolean
+  target: PwdTarget | null
+  oldPwd: string
+  newPwd: string
+  newPwd2: string
+  loading: boolean
+  setOldPwd: (v: string) => void
+  setNewPwd: (v: string) => void
+  setNewPwd2: (v: string) => void
+  open: (user?: PwdTarget | null) => void
+  close: () => void
+  submit: () => Promise<void>
+}
 
-const isSelf = computed(() => !target.value)
-const canSubmit = computed(() => {
-  if (!newPwd.value || newPwd.value.length < 4) return false
-  if (isSelf.value) {
-    if (!oldPwd.value) return false
-    if (newPwd.value !== newPwd2.value) return false
-  }
-  return true
-})
+/** 密码修改/重置弹窗全局单例状态（等价于 Vue 版本的模块级 ref） */
+export const usePasswordModal = create<PasswordModalState>()((set, get) => ({
+  show: false,
+  target: null,
+  oldPwd: '',
+  newPwd: '',
+  newPwd2: '',
+  loading: false,
 
-export function usePasswordModal() {
-  const message = useMessage()
+  setOldPwd: (v) => set({ oldPwd: v }),
+  setNewPwd: (v) => set({ newPwd: v }),
+  setNewPwd2: (v) => set({ newPwd2: v }),
 
-  function open(user: PwdTarget | null = null) {
-    target.value = user
-    oldPwd.value = ''
-    newPwd.value = ''
-    newPwd2.value = ''
-    show.value = true
-  }
+  open(user = null) {
+    set({ target: user, oldPwd: '', newPwd: '', newPwd2: '', show: true })
+  },
 
-  function close() {
-    show.value = false
-    target.value = null
-  }
+  close() {
+    set({ show: false, target: null })
+  },
 
-  async function submit() {
-    if (!canSubmit.value) return
-    loading.value = true
+  async submit() {
+    const { target, oldPwd, newPwd, newPwd2 } = get()
+    const isSelf = !target
+    // 与 Vue 版 canSubmit 校验保持一致
+    if (!newPwd || newPwd.length < 4) return
+    if (isSelf && (!oldPwd || newPwd !== newPwd2)) return
+
+    set({ loading: true })
     try {
       await changePassword({
-        userId: isSelf.value ? null : target.value!.id,
-        oldPassword: isSelf.value ? oldPwd.value : null,
-        newPassword: newPwd.value,
+        userId: isSelf ? null : target.id,
+        oldPassword: isSelf ? oldPwd : null,
+        newPassword: newPwd,
       })
-      message.success('密码修改成功')
-      close()
+      messageSuccess('密码修改成功')
+      get().close()
     } catch (err) {
-      if (!isHandledError(err)) message.error(getErrorMessage(err))
+      if (!isHandledError(err)) messageError(getErrorMessage(err))
     } finally {
-      loading.value = false
+      set({ loading: false })
     }
-  }
-
-  return { show, target, oldPwd, newPwd, newPwd2, loading, isSelf, canSubmit, open, close, submit }
-}
+  },
+}))

@@ -10,34 +10,45 @@
   <meta name="description" content="KeyGo - 激活码分发管理系统">
   <title>KeyGo</title>
 
-  <!-- 资源预连接：提前建立与阿里云 CDN 的 DNS + TCP + TLS 连接 -->
-  <link rel="preconnect" href="https://registry.npmmirror.com" crossorigin>
-  <link rel="dns-prefetch" href="https://registry.npmmirror.com">
-
-  <script type="importmap">
-    {
-      "imports": {
-        "vue": "https://registry.npmmirror.com/vue/3.5.41/files/dist/vue.esm-browser.prod.js",
-        "vue-router": "https://registry.npmmirror.com/vue-router/5.2.0/files/dist/vue-router.esm-browser.prod.js",
-        "pinia": "https://registry.npmmirror.com/pinia/4.0.2/files/dist/pinia.esm-browser.prod.js"
-      }
-    }
+  <!-- 主题初始化：渲染前根据 localStorage / 系统偏好设置 data-theme，避免暗色闪白 -->
+  <script>
+    (function () {
+      try {
+        var mode = localStorage.getItem('keygo-theme-mode') || 'auto';
+        var dark = mode === 'dark' ||
+          (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) { /* ignore */ }
+    })();
   </script>
 
-  <!-- 预加载关键依赖（vue 是所有模块的基础，优先下载） -->
-  <link rel="modulepreload" href="https://registry.npmmirror.com/vue/3.5.41/files/dist/vue.esm-browser.prod.js"
-    crossorigin>
+  <!-- antd reset.css 已改为本地依赖引入（main.tsx），避免 CDN 被浏览器跟踪防护拦截 -->
+
+  <!-- ===== CDN: Importmap（React + antd + icons + react-19 patch）via esm.sh ===== -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@19.2.8",
+      "react/jsx-runtime": "https://esm.sh/react@19.2.8/jsx-runtime",
+      "react-dom": "https://esm.sh/react-dom@19.2.8?external=react",
+      "react-dom/client": "https://esm.sh/react-dom@19.2.8/client?external=react",
+      "antd": "https://esm.sh/antd@5.29.3?external=react,react-dom,@ant-design/icons",
+      "@ant-design/icons": "https://esm.sh/@ant-design/icons@5.6.1?external=react,react-dom",
+      "@ant-design/v5-patch-for-react-19": "https://esm.sh/@ant-design/v5-patch-for-react-19@1.0.3?external=react,react-dom,antd"
+    }
+  }
+  </script>
 
   <!-- 首屏加载动画，提升感知性能 -->
   <style>
-    #app:empty {
+    #root:empty {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    #app:empty::after {
+    #root:empty::after {
       content: '';
       width: 32px;
       height: 32px;
@@ -52,12 +63,17 @@
         transform: rotate(360deg);
       }
     }
+
+    html[data-theme='dark'] #root:empty::after {
+      border-color: #334155;
+      border-top-color: #6366f1;
+    }
   </style>
 </head>
 
 <body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.ts"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 
 </html>
