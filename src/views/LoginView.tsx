@@ -7,6 +7,7 @@ import { register } from '@/api/auth'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess } from '@/utils/messageBridge'
 import AppIcon from '@/components/AppIcon'
+import { FadeIn } from '@/components/FadeIn'
 import './LoginView.css'
 
 export default function LoginView() {
@@ -163,7 +164,7 @@ export default function LoginView() {
 
   return (
     <div className="login-page">
-      <div className="login-wrapper">
+      <FadeIn className="login-wrapper">
         <div className="brand-area">
           <div className="brand-logo">
             <AppIcon name="key" size={26} />
@@ -180,7 +181,7 @@ export default function LoginView() {
             items={tabItems}
           />
         </Card>
-      </div>
+      </FadeIn>
     </div>
   )
 }

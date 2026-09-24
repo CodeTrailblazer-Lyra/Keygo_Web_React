@@ -1,15 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Modal, Select } from 'antd'
-import { selectIsAdmin, useAuthStore } from '@/stores/auth'
 import { claimCode, getStats } from '@/api/codes'
 import { listUnits } from '@/api/units'
-import { announcements as fetchAnnouncements, deleteAnnouncement } from '@/api/logs'
-import { copyText, formatTime } from '@/utils'
+import { announcements as fetchAnnouncements } from '@/api/logs'
+import { copyText } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
-import { appConfirm } from '@/utils/antdAppBridge'
+import { releaseModalOverlay, useModalOverlayCleanup } from '@/utils/modalScrollLock'
 import type { Announcement, UsageUnit } from '@/types'
 import AppIcon from '@/components/AppIcon'
+import { AnimatedItem, AnimatedList } from '@/components/AnimatedList'
+import { FadeIn } from '@/components/FadeIn'
+import { AnimatedNumber } from '@/components/AnimatedNumber'
 import './FetchView.css'
 
 /** 上次申领所选使用单位的持久化 key（localStorage，刷新页面后仍生效） */
@@ -35,8 +37,6 @@ function saveLastUnit(name: string): void {
 }
 
 export default function FetchView() {
-  const isAdmin = useAuthStore(selectIsAdmin)
-
   const [stats, setStats] = useState({ total: 0, available: 0, used: 0 })
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
@@ -55,7 +55,7 @@ export default function FetchView() {
   const codeDisplayRef = useRef<HTMLDivElement>(null)
   const [codeFontSize, setCodeFontSize] = useState(20)
 
-  function fitCodeFont() {
+  const fitCodeFont = useCallback(() => {
     const el = codeDisplayRef.current
     if (!el || !claimedCode) return
     const style = window.getComputedStyle(el)
@@ -66,7 +66,7 @@ export default function FetchView() {
     let size = 20
     while (size > 10 && len * size * 0.65 > avail) size -= 0.5
     setCodeFontSize(size)
-  }
+  }, [claimedCode])
 
   async function loadAnnouncements() {
     try {
@@ -134,32 +134,18 @@ export default function FetchView() {
     else messageWarning('复制失败，请手动复制')
   }
 
-  function confirmDeleteAnnouncement(id: number) {
-    appConfirm({
-      title: '删除公告',
-      content: '确定要删除这条公告吗？',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        try {
-          await deleteAnnouncement(id)
-          messageSuccess('公告已删除')
-          await loadAnnouncements()
-        } catch (err) {
-          if (!isHandledError(err)) messageError(getErrorMessage(err))
-        }
-      },
-    })
-  }
-
   useEffect(() => {
     void loadAnnouncements()
     void loadStats()
     void loadUnits()
   }, [])
 
+  // 弹窗关闭后兜底清理可能残留的遮罩层与滚动锁定，确保页面交互恢复正常
+  useModalOverlayCleanup(showClaimModal)
+
   useLayoutEffect(() => {
     if (claimDone && claimOk && claimedCode) fitCodeFont()
-  }, [claimDone, claimOk, claimedCode])
+  }, [claimDone, claimOk, claimedCode, fitCodeFont])
 
   useEffect(() => {
     function onWinResize() {
@@ -167,7 +153,7 @@ export default function FetchView() {
     }
     window.addEventListener('resize', onWinResize)
     return () => window.removeEventListener('resize', onWinResize)
-  }, [claimDone, claimOk, claimedCode])
+  }, [claimDone, claimOk, fitCodeFont])
 
   return (
     <div>
@@ -176,46 +162,32 @@ export default function FetchView() {
         <p className="page-subtitle">点击按钮获取一个可用的激活码</p>
       </div>
 
-      {announcements.length > 0 && (
-        <div className="announcement-list">
-          {announcements.map((item) => (
-            <Alert
-              key={item.id}
-              type={item.pinned ? 'warning' : 'info'}
-              showIcon={false}
-              className="announcement-item"
-              message={(
-                <div className="announcement-content">
-                  <span className="announcement-text">{item.content}</span>
-                  <span className="announcement-meta">
-                    {item.publisher ? item.publisher + ' · ' : ''}
-                    {formatTime(item.createTime)}
-                  </span>
-                  {isAdmin && (
-                    <Button
-                      size="small"
-                      type="text"
-                      danger
-                      onClick={() => confirmDeleteAnnouncement(item.id)}
-                    >
-                      删除
-                    </Button>
-                  )}
-                </div>
-              )}
-            />
-          ))}
-        </div>
+      {/* 公告仅展示内容；visible=false 的公告由管理页控制、此处不渲染 */}
+      {announcements.filter((a) => a.visible !== false).length > 0 && (
+        <AnimatedList className="announcement-list" effect="right">
+          {announcements
+            .filter((a) => a.visible !== false)
+            .map((item) => (
+              <AnimatedItem key={item.id} effect="right">
+                <Alert
+                  type={item.pinned ? 'warning' : 'info'}
+                  showIcon={false}
+                  className="announcement-item"
+                  message={<span className="announcement-text">{item.content}</span>}
+                />
+              </AnimatedItem>
+            ))}
+        </AnimatedList>
       )}
 
-      <div className="stats-grid">
+      <FadeIn className="stats-grid" delay={0.04} effect="fade" animateOnMount={false}>
         <Card className="stat-card" styles={{ body: { padding: 20 } }} variant="outlined">
           <div className="stat-card-inner">
             <span className="stat-icon">
               <AppIcon name="package" size={28} />
             </span>
             <div>
-              <div className="stat-value">{stats.total}</div>
+              <AnimatedNumber value={stats.total} className="stat-value" />
               <div className="stat-label">总数</div>
             </div>
           </div>
@@ -226,7 +198,7 @@ export default function FetchView() {
               <AppIcon name="check-circle" size={28} />
             </span>
             <div>
-              <div className="stat-value stat-value-green">{stats.available}</div>
+              <AnimatedNumber value={stats.available} className="stat-value stat-value-green" />
               <div className="stat-label">可用</div>
             </div>
           </div>
@@ -237,12 +209,12 @@ export default function FetchView() {
               <AppIcon name="map-pin" size={28} />
             </span>
             <div>
-              <div className="stat-value stat-value-orange">{stats.used}</div>
+              <AnimatedNumber value={stats.used} className="stat-value stat-value-orange" />
               <div className="stat-label">已使用</div>
             </div>
           </div>
         </Card>
-      </div>
+      </FadeIn>
 
       <Card className="claim-card" styles={{ body: { padding: 20 } }} variant="outlined">
         <div className="claim-section">
@@ -267,6 +239,8 @@ export default function FetchView() {
         width={420}
         closable={false}
         maskClosable={false}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
       >
         {!claimDone ? (
           <div className="claim-modal-body">
@@ -280,11 +254,12 @@ export default function FetchView() {
             <div className="claim-unit-field">
               <span className="claim-unit-label">使用单位（可选）</span>
               <Select
-                value={unit || undefined}
+                value={unit}
                 onChange={(v) => setUnit(v ?? '')}
-                allowClear
-                placeholder="不选择则备注保持原样"
-                options={units.map((u) => ({ label: u.name, value: u.name }))}
+                options={[
+                  { label: '不选择（留空）', value: '' },
+                  ...units.map((u) => ({ label: u.name, value: u.name })),
+                ]}
                 notFoundContent="暂无可选单位"
                 style={{ width: '100%' }}
               />

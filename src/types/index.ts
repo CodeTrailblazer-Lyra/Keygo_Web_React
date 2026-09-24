@@ -62,6 +62,8 @@ export interface Announcement {
   content: string
   publisher: string | null
   pinned: boolean
+  /** 是否在获取页展示（后端未返回该字段时视为 true，向后兼容） */
+  visible?: boolean
   createTime: string | null
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Button,
   Card,
@@ -7,6 +8,7 @@ import {
   Input,
   Modal,
   Select,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -28,14 +30,21 @@ import {
   importUnits as importUnitsApi,
   listUnits as listUnitsApi,
 } from '@/api/units'
-import { publishAnnouncement as publishAnnouncementApi } from '@/api/logs'
+import {
+  deleteAnnouncement as deleteAnnouncementApi,
+  publishAnnouncement as publishAnnouncementApi,
+  updateAnnouncementVisible,
+  announcements as listAnnouncementsApi,
+} from '@/api/logs'
 import { formatTime, roleLabel, roleTagColor } from '@/utils'
 import { usePasswordModal } from '@/composables/usePasswordModal'
-import type { SysUser, UsageUnit } from '@/types'
+import type { Announcement, SysUser, UsageUnit } from '@/types'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess } from '@/utils/messageBridge'
 import { appConfirm } from '@/utils/antdAppBridge'
 import AppIcon from '@/components/AppIcon'
+import { FadeIn } from '@/components/FadeIn'
+import { durations, easings } from '@/anim/motion'
 import './AdminView.css'
 
 const { Text } = Typography
@@ -64,7 +73,14 @@ export default function AdminView() {
   const [showAnnounceModal, setShowAnnounceModal] = useState(false)
   const [announceContent, setAnnounceContent] = useState('')
   const [announcePinned, setAnnouncePinned] = useState(false)
+  const [announceVisible, setAnnounceVisible] = useState(true)
   const [announcePublishing, setAnnouncePublishing] = useState(false)
+
+  // 公告管理列表（含删除 / 是否显示开关）
+  const [announceList, setAnnounceList] = useState<Announcement[]>([])
+  const [announceLoading, setAnnounceLoading] = useState(false)
+  /** 当前展开的公告 id（列表项展开/收起动画用） */
+  const [expandedAnnounceId, setExpandedAnnounceId] = useState<number | null>(null)
 
   // 使用单位（获取页下拉数据源）
   const [unitsList, setUnitsList] = useState<UsageUnit[]>([])
@@ -72,6 +88,9 @@ export default function AdminView() {
   const [newUnitName, setNewUnitName] = useState('')
   const [addingUnit, setAddingUnit] = useState(false)
   const [importingUnits, setImportingUnits] = useState(false)
+  // 使用单位表格分页（受控：每页条数可切换 10/20/50/100 并正确生效）
+  const [unitPage, setUnitPage] = useState(1)
+  const [unitPageSize, setUnitPageSize] = useState(10)
 
   async function loadPending() {
     setPendingLoading(true)
@@ -106,10 +125,23 @@ export default function AdminView() {
     }
   }
 
+  /** 公告管理列表 */
+  async function loadAnnouncements() {
+    setAnnounceLoading(true)
+    try {
+      setAnnounceList(await listAnnouncementsApi())
+    } catch (err) {
+      if (!isHandledError(err)) messageError(getErrorMessage(err))
+    } finally {
+      setAnnounceLoading(false)
+    }
+  }
+
   useEffect(() => {
     void loadPending()
     void loadAllUsers()
     void loadUnits()
+    void loadAnnouncements()
   }, [])
 
   function doApprove(id: number) {
@@ -193,6 +225,7 @@ export default function AdminView() {
   function openAnnounceModal() {
     setAnnounceContent('')
     setAnnouncePinned(false)
+    setAnnounceVisible(true)
     setShowAnnounceModal(true)
   }
 
@@ -203,16 +236,50 @@ export default function AdminView() {
     }
     setAnnouncePublishing(true)
     try {
-      await publishAnnouncementApi(announceContent, announcePinned)
+      await publishAnnouncementApi(announceContent, announcePinned, announceVisible)
       messageSuccess('公告已发布')
       setShowAnnounceModal(false)
       setAnnounceContent('')
       setAnnouncePinned(false)
+      setAnnounceVisible(true)
+      await loadAnnouncements()
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     } finally {
       setAnnouncePublishing(false)
     }
+  }
+
+  /* ===== 系统公告管理 ===== */
+
+  /** 切换公告展示状态（乐观更新，失败回滚） */
+  async function toggleAnnouncementVisible(item: Announcement, visible: boolean) {
+    const prev = announceList
+    setAnnounceList((list) => list.map((a) => (a.id === item.id ? { ...a, visible } : a)))
+    try {
+      await updateAnnouncementVisible(item.id, visible)
+      messageSuccess(visible ? '公告已设为展示' : '公告已隐藏')
+    } catch (err) {
+      setAnnounceList(prev)
+      if (!isHandledError(err)) messageError(getErrorMessage(err))
+    }
+  }
+
+  function confirmDeleteAnnouncement(item: Announcement) {
+    appConfirm({
+      title: '删除公告',
+      content: '确定要删除这条公告吗？删除后获取页将不再显示。',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteAnnouncementApi(item.id)
+          messageSuccess('公告已删除')
+          await loadAnnouncements()
+        } catch (err) {
+          if (!isHandledError(err)) messageError(getErrorMessage(err))
+        }
+      },
+    })
   }
 
   /* ===== 使用单位 ===== */
@@ -383,6 +450,7 @@ export default function AdminView() {
       </div>
 
       {pendingList.length > 0 && (
+        <FadeIn delay={0.02} animateOnMount={false}>
         <Card
           className="table-card"
           styles={{ body: { padding: 24 } }}
@@ -405,8 +473,10 @@ export default function AdminView() {
             pagination={false}
           />
         </Card>
+        </FadeIn>
       )}
 
+      <FadeIn delay={0.04} animateOnMount={false}>
       <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
         <div style={{ marginBottom: 12 }}>
           <Text strong className="card-title">
@@ -422,10 +492,13 @@ export default function AdminView() {
           scroll={{ x: 1000 }}
           pagination={false}
         />
-      </Card>
+        </Card>
+      </FadeIn>
 
       {/* 瀑布流区：使用单位 + 系统公告（宽屏两列按内容高度排布，窄屏单列堆叠） */}
+      {/* 每张卡片各自作为整体渐入（错峰延迟），而非内部列表逐项触发动画 */}
       <div className="admin-masonry">
+        <FadeIn delay={0.06} animateOnMount={false}>
         {/* 使用单位：手动添加 + 文件批量导入，供获取页下拉读取 */}
         <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
           <div className="units-header">
@@ -476,12 +549,30 @@ export default function AdminView() {
             loading={unitsLoading}
             bordered
             scroll={{ x: 560 }}
-            pagination={unitsList.length > 10 ? { pageSize: 10, size: 'small' } : false}
+            pagination={
+              unitsList.length > unitPageSize
+                ? {
+                    current: Math.min(unitPage, Math.max(1, Math.ceil(unitsList.length / unitPageSize))),
+                    pageSize: unitPageSize,
+                    size: 'small',
+                    showSizeChanger: true,
+                    pageSizeOptions: [10, 20, 50, 100],
+                    showTotal: (t) => `共 ${t} 条`,
+                    onChange: (p, s) => {
+                      // 切换每页条数时回到第一页，避免停留在超出范围的原页码
+                      setUnitPageSize(s)
+                      setUnitPage(s !== unitPageSize ? 1 : p)
+                    },
+                  }
+                : false
+            }
             style={{ marginTop: 16 }}
           />
         </Card>
 
-        {/* 系统公告：发布公告入口独立成卡片，与用户管理模块解耦 */}
+        </FadeIn>
+        <FadeIn delay={0.1} animateOnMount={false}>
+        {/* 系统公告：发布 + 管理列表（是否显示 / 删除） */}
         <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
           <div className="announce-header">
             <Text strong className="card-title">
@@ -491,10 +582,82 @@ export default function AdminView() {
               发布公告
             </Button>
           </div>
-          <Text type="secondary">
-            公告发布后将展示在所有用户的「获取」页面顶部；勾选「置顶」的公告会优先显示。
+          <Text type="secondary" className="announce-hint">
+            公告发布后展示在用户的「获取」页面顶部；关闭「显示」可临时下线公告，无需删除。
           </Text>
+
+          {/* 列表项不再逐项入场（卡片整体已渐入）；删除时以 AnimatePresence 平滑收起，
+              其余项借 layout 自然回流，属于「状态变化」而非「入场逐项触发」 */}
+          <div className="announce-list" style={{ marginTop: 16 }}>
+            {announceLoading ? (
+              <Text type="secondary">加载中...</Text>
+            ) : announceList.length === 0 ? (
+              <Text type="secondary">暂无公告</Text>
+            ) : (
+              <AnimatePresence initial={false}>
+                {announceList.map((item) => {
+                  const expanded = expandedAnnounceId === item.id
+                  const collapsible = item.content.length > 40
+                  return (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    className="announce-row"
+                    style={{ overflow: 'hidden' }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0, transition: { duration: durations.micro, ease: easings.inOut } }}
+                  >
+                    <div className="announce-row-main">
+                      {item.pinned && <Tag color="orange" className="announce-pin-tag">置顶</Tag>}
+                      <div className="announce-content-col">
+                        <motion.div
+                          className="announce-row-content"
+                          initial={false}
+                          animate={{ height: expanded ? 'auto' : 44 }}
+                          transition={{ duration: durations.base, ease: easings.out }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <span>{item.content}</span>
+                        </motion.div>
+                        {collapsible && (
+                          <Button
+                            type="link"
+                            size="small"
+                            className="announce-expand-btn"
+                            onClick={() =>
+                              setExpandedAnnounceId(expanded ? null : item.id)
+                            }
+                          >
+                            {expanded ? '收起' : '展开'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="announce-row-actions">
+                      <span className="announce-visible-toggle">
+                        <Switch
+                          size="small"
+                          checked={item.visible !== false}
+                          onChange={(checked) => void toggleAnnouncementVisible(item, checked)}
+                        />
+                        <Text type="secondary" className="announce-visible-label">显示</Text>
+                      </span>
+                      <Button
+                        size="small"
+                        type="text"
+                        danger
+                        onClick={() => confirmDeleteAnnouncement(item)}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </motion.div>
+                  )
+                })}
+              </AnimatePresence>
+            )}
+          </div>
         </Card>
+        </FadeIn>
       </div>
 
       {/* 修改角色 */}
@@ -552,6 +715,9 @@ export default function AdminView() {
           />
           <Checkbox checked={announcePinned} onChange={(e) => setAnnouncePinned(e.target.checked)}>
             置顶此公告
+          </Checkbox>
+          <Checkbox checked={announceVisible} onChange={(e) => setAnnounceVisible(e.target.checked)}>
+            在获取页显示（取消勾选则仅保存、不展示）
           </Checkbox>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Button, Input, Modal } from 'antd'
 import { usePasswordModal } from '@/composables/usePasswordModal'
+import { releaseModalOverlay, useModalOverlayCleanup } from '@/utils/modalScrollLock'
 
 /** 密码修改/重置弹窗（全局单例状态，由 usePasswordModal 控制） */
 export default function PasswordModal() {
@@ -15,6 +16,9 @@ export default function PasswordModal() {
   const setNewPwd2 = usePasswordModal((s) => s.setNewPwd2)
   const close = usePasswordModal((s) => s.close)
   const submit = usePasswordModal((s) => s.submit)
+
+  // 弹窗关闭后兜底清理可能残留的遮罩层与滚动锁定，确保页面交互恢复正常
+  useModalOverlayCleanup(show)
 
   const isSelf = !target
   const canSubmit = (() => {
@@ -37,6 +41,8 @@ export default function PasswordModal() {
       width={420}
       closable
       maskClosable={false}
+      destroyOnClose
+      afterClose={releaseModalOverlay}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {isSelf && (

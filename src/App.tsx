@@ -1,4 +1,5 @@
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd'
+import { MotionConfig } from 'motion/react'
 import { BrowserRouter, useNavigate } from 'react-router'
 import { registerNavigate } from '@/router/navigation'
 import { useEffect } from 'react'
@@ -35,13 +36,15 @@ export default function App() {
         token: { colorPrimary: '#6366f1', borderRadius: 6 },
       }}
     >
-      <AntdApp>
-        <AntdAppRegistrar />
-        <BrowserRouter>
-          <NavigateRegister />
-          <AppRoutes />
-        </BrowserRouter>
-      </AntdApp>
+      <MotionConfig reducedMotion="user">
+        <AntdApp>
+          <AntdAppRegistrar />
+          <BrowserRouter>
+            <NavigateRegister />
+            <AppRoutes />
+          </BrowserRouter>
+        </AntdApp>
+      </MotionConfig>
     </ConfigProvider>
   )
 }

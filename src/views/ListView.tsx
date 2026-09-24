@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, KeyboardEvent } from 'react'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -33,7 +33,9 @@ import { copyText, formatTime } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
 import { appConfirm } from '@/utils/antdAppBridge'
-import type { ActivationCode, BatchClaimResult } from '@/types'
+import { releaseModalOverlay } from '@/utils/modalScrollLock'
+import type { ActivationCode, BatchClaimResult, CodeListResult } from '@/types'
+import { AnimatedNumber } from '@/components/AnimatedNumber'
 import './ListView.css'
 
 const { Text } = Typography
@@ -44,18 +46,48 @@ const filterOptions = [
   { label: '已使用', value: 'used' },
 ]
 
+/** 是否移动端（≤768px）：用于切换查询页操作的展示与交互形态（内联按钮 ↔ 长按菜单） */
+function useIsMobile(): boolean {
+  const get = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(max-width: 768px)').matches
+  const [mobile, setMobile] = useState(get)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const handler = () => setMobile(mq.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return mobile
+}
+
+/** 单次拉取每页条数：用于一次性拉取全量数据，转为纯前端筛选/分页，保证多字段统一搜索的一致性 */
+const FETCH_PAGE_SIZE = 100
+/** 安全上限：最多翻 50 页（5000 条），避免异常响应导致死循环 */
+const MAX_FETCH_PAGES = 50
+/** 拉取后续页时的并发批次大小：并行提速，同时避免瞬时压垮后端 */
+const FETCH_CONCURRENCY = 4
+
 export default function ListView() {
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin)
+  /** 移动端判定：操作列与行交互在移动端切换为「长按弹出操作菜单」形态 */
+  const isMobile = useIsMobile()
 
   const [filter, setFilter] = useState('')
-  const [keyword, setKeyword] = useState('')
+  /** 统一搜索关键词：同时模糊匹配 激活码 / 备注 / 获取人 */
+  const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [codes, setCodes] = useState<ActivationCode[]>([])
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  /** 全量数据集（拉取所有页后缓存于前端），筛选与分页均在本地完成 */
+  const [allCodes, setAllCodes] = useState<ActivationCode[]>([])
   const [listStats, setListStats] = useState({ total: 0, available: 0, used: 0 })
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  /** 移动端长按行弹出的操作选择菜单：当前选中行（null 表示关闭） */
+  const [actionMenuRow, setActionMenuRow] = useState<ActivationCode | null>(null)
+  const longPressTimer = useRef<number | null>(null)
+  /** 数据刷新令牌：每次成功拉取全量列表自增，驱动表格区「数据刷新过渡」渐入 */
+  const [refreshToken, setRefreshToken] = useState(0)
 
   const [editingRemarkId, setEditingRemarkId] = useState<number | null>(null)
   const [editingRemarkText, setEditingRemarkText] = useState('')
@@ -67,6 +99,8 @@ export default function ListView() {
   const [importResult, setImportResult] = useState('')
   const [importOk, setImportOk] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** 表格容器 ref：数据刷新时通过切换 CSS 类实现「轻量淡入」，避免整体重挂载造成的卡顿 */
+  const tableRef = useRef<HTMLDivElement>(null)
 
   const [showBatchClaimModal, setShowBatchClaimModal] = useState(false)
   const [batchClaimCount, setBatchClaimCount] = useState<number | string>(1)
@@ -74,20 +108,25 @@ export default function ListView() {
   const [batchClaimDone, setBatchClaimDone] = useState(false)
   const [batchClaimResult, setBatchClaimResult] = useState<BatchClaimResult | null>(null)
 
-  async function loadCodes(
-    status: string,
-    p: number,
-    kw: string = keyword,
-    size: number = pageSize,
-  ) {
+  /** 拉取全量激活码（穿透分页），转为本地筛选，确保 激活码/备注/获取人 三字段统一搜索覆盖全部数据 */
+  async function loadAllCodes() {
     setLoading(true)
     try {
-      const data = await listCodes({ status, keyword: kw, page: p, size })
-      setCodes(data.codes)
-      setListStats({ total: data.total, available: data.available, used: data.used })
-      setPage(p)
-      setPageSize(size)
-      setTotal(data.totalElements)
+      const first = await listCodes({ status: '', page: 1, size: FETCH_PAGE_SIZE })
+      const pages = Math.min(Math.max(1, first.totalPages || 1), MAX_FETCH_PAGES)
+      const collected: ActivationCode[] = [...first.codes]
+      // 其余页按批次并行拉取（保持页序），此前逐页串行 await，页数多时加载耗时成倍增加
+      for (let start = 2; start <= pages; start += FETCH_CONCURRENCY) {
+        const batch: Promise<CodeListResult>[] = []
+        for (let p = start; p <= Math.min(pages, start + FETCH_CONCURRENCY - 1); p++) {
+          batch.push(listCodes({ status: '', page: p, size: FETCH_PAGE_SIZE }))
+        }
+        for (const r of await Promise.all(batch)) collected.push(...r.codes)
+      }
+      setAllCodes(collected)
+      const available = collected.filter((c) => !c.used).length
+      setListStats({ total: collected.length, available, used: collected.length - available })
+      setRefreshToken((t) => t + 1)
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     } finally {
@@ -96,26 +135,34 @@ export default function ListView() {
   }
 
   useEffect(() => {
-    void loadCodes('', 1)
+    void loadAllCodes()
   }, [])
 
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // 卸载时清理防抖定时器，避免内存泄漏与卸载后发起多余请求
+  /**
+   * 列表加载「丝滑淡入」：不重挂载整张表格（避免 antd Table 列宽重算 / 固定列回流导致的卡顿），
+   * 而是在数据刷新时，用 Web Animations API 对常驻的表格容器做轻量 opacity 淡入。
+   * 相比此前「移除 class → 强制回流(reflow) → 重加 class」的方案，WAAPI 不再触发同步 reflow，
+   * 可避免重型 Table 在页面切换动画期间被强制重排而掉帧。
+   * 首次挂载（loading 态、尚无真实数据）跳过，避免与页面入场动画争抢主线程造成卡顿。
+   */
+  const fadeMountedRef = useRef(false)
   useEffect(() => {
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current)
+    const el = tableRef.current
+    if (!el) return
+    // 首帧挂载时表格处于 loading 骨架，尚无真实数据，无需淡入；跳过既可避免冗余动画，
+    // 也避免与页面滑动入场争抢主线程。后续真实数据到达 / 筛选 / 翻页时再淡入。
+    if (!fadeMountedRef.current) {
+      fadeMountedRef.current = true
+      return
     }
-  }, [])
-
-  function onKeywordChange(e: ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value
-    setKeyword(v)
-    if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => {
-      void loadCodes(filter, 1, v)
-    }, 400)
-  }
+    // 尊重「减少动效」系统偏好：直接呈现，不做动画
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const anim = el.animate(
+      [{ opacity: 0.35 }, { opacity: 1 }],
+      { duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' },
+    )
+    return () => anim.cancel()
+  }, [refreshToken])
 
   /* ===== 筛选器滑动指示器 ===== */
   const filterBarRef = useRef<HTMLDivElement>(null)
@@ -141,15 +188,54 @@ export default function ListView() {
     return () => window.removeEventListener('resize', updateFilterIndicator)
   }, [updateFilterIndicator])
 
+  /** 统一搜索（实时）：匹配 激活码 / 备注 / 获取人 任一字段即可 */
+  function onSearchChange(e: ChangeEvent<HTMLInputElement>) {
+    setSearchText(e.target.value)
+    setPage(1)
+  }
+
   function onFilterChange(value: string) {
     setFilter(value)
     setSelectedIds([])
-    void loadCodes(value, 1)
+    setPage(1)
   }
 
-  function clearSelection() {
-    setSelectedIds([])
+  /** 是否存在生效中的筛选条件（用于展示「清除筛选」） */
+  const hasActiveFilter = filter !== '' || searchText.trim() !== ''
+
+  function clearFilters() {
+    setFilter('')
+    setSearchText('')
+    setPage(1)
   }
+
+  // 多条件组合筛选：状态（全部/未使用/已使用）+ 统一关键词（激活码/备注/获取人），纯前端、实时更新
+  const filtered = useMemo(() => {
+    const kw = searchText.trim().toLowerCase()
+    return allCodes.filter((c) => {
+      if (filter === 'used' && !c.used) return false
+      if (filter === 'unused' && c.used) return false
+      if (kw) {
+        const haystack = `${c.code} ${c.remark ?? ''} ${c.fetchUser ?? ''}`.toLowerCase()
+        if (!haystack.includes(kw)) return false
+      }
+      return true
+    })
+  }, [allCodes, filter, searchText])
+
+  // 当前页切片（前端分页）
+  const paged = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, page, pageSize])
+
+  const total = filtered.length
+
+  // 筛选结果变少后，若当前页超出范围则自动回落，避免空白页
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize))
+    if (page > maxPage) setPage(maxPage)
+  }, [filtered, pageSize, page])
 
   function confirmMark(id: number) {
     appConfirm({
@@ -160,7 +246,7 @@ export default function ListView() {
         try {
           await markUsed(id)
           messageSuccess('已标记为使用')
-          await loadCodes(filter, page)
+          await loadAllCodes()
         } catch (err) {
           if (!isHandledError(err)) messageError(getErrorMessage(err))
         }
@@ -177,7 +263,7 @@ export default function ListView() {
         try {
           await markUnused(id)
           messageSuccess('已恢复为未使用')
-          await loadCodes(filter, page)
+          await loadAllCodes()
         } catch (err) {
           if (!isHandledError(err)) messageError(getErrorMessage(err))
         }
@@ -195,7 +281,7 @@ export default function ListView() {
         try {
           await deleteCode(id)
           messageSuccess('删除成功')
-          await loadCodes(filter, page)
+          await loadAllCodes()
         } catch (err) {
           if (!isHandledError(err)) messageError(getErrorMessage(err))
         }
@@ -208,7 +294,7 @@ export default function ListView() {
       await batchUseApi(selectedIds)
       messageSuccess('批量标记成功')
       clearSelection()
-      await loadCodes(filter, page)
+      await loadAllCodes()
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     }
@@ -219,7 +305,7 @@ export default function ListView() {
       await batchUnuseApi(selectedIds)
       messageSuccess('批量恢复成功')
       clearSelection()
-      await loadCodes(filter, page)
+      await loadAllCodes()
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     }
@@ -240,12 +326,16 @@ export default function ListView() {
           await batchDeleteApi(selectedIds)
           messageSuccess('批量删除成功')
           clearSelection()
-          await loadCodes(filter, page)
+          await loadAllCodes()
         } catch (err) {
           if (!isHandledError(err)) messageError(getErrorMessage(err))
         }
       },
     })
+  }
+
+  function clearSelection() {
+    setSelectedIds([])
   }
 
   function startEditRemark(row: ActivationCode) {
@@ -260,7 +350,7 @@ export default function ListView() {
     try {
       await updateRemark(id, text)
       messageSuccess('备注已更新')
-      await loadCodes(filter, page)
+      await loadAllCodes()
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     }
@@ -307,7 +397,7 @@ export default function ListView() {
       setImportResult('导入完成')
       setImportOk(true)
       messageSuccess('导入成功')
-      await loadCodes(filter, 1)
+      await loadAllCodes()
     } catch (err: unknown) {
       const msg = getErrorMessage(err)
       setImportResult(msg)
@@ -320,7 +410,7 @@ export default function ListView() {
 
   async function exportExcel() {
     try {
-      const blob = await exportCodes({ status: filter, keyword })
+      const blob = await exportCodes({ status: filter, keyword: searchText })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -462,59 +552,118 @@ export default function ListView() {
         <Text type="secondary">{row.fetchTime ? formatTime(row.fetchTime) : '—'}</Text>
       ),
     },
-    {
-      title: '操作',
-      width: 132,
-      align: 'center',
-      fixed: 'right',
-      render: (_: unknown, row: ActivationCode) => {
-        const actions = []
-        if (!row.used) {
-          actions.push(
-            <Button
-              key="use"
-              size="small"
-              type="primary"
-              icon={<AppIcon name="check-circle" size={14} />}
-              onClick={() => confirmMark(row.id)}
-            >
-              使用
-            </Button>,
-          )
-        } else if (isSuperAdmin) {
-          actions.push(
-            <Button
-              key="unmark"
-              size="small"
-              type="default"
-              icon={<AppIcon name="lock" size={14} />}
-              onClick={() => confirmUnmark(row.id)}
-            >
-              恢复
-            </Button>,
-          )
-        }
-        if (isSuperAdmin) {
-          actions.push(
-            <Button
-              key="del"
-              size="small"
-              type="text"
-              danger
-              icon={<AppIcon name="x-circle" size={14} />}
-              onClick={() => confirmDelete(row.id)}
-            >
-              删除
-            </Button>,
-          )
-        }
-        if (actions.length === 0) {
-          return <Text type="secondary">—</Text>
-        }
-        return <div className="row-actions">{actions}</div>
-      },
-    },
+    ...(isMobile
+      ? []
+      : [
+          {
+            title: '操作',
+            width: 140,
+            align: 'center' as const,
+            fixed: 'right' as const,
+            render: (_: unknown, row: ActivationCode) => {
+              const actions = []
+              if (!row.used) {
+                actions.push(
+                  <Button
+                    key="use"
+                    size="small"
+                    type="primary"
+                    icon={<AppIcon name="check-circle" size={14} />}
+                    onClick={() => confirmMark(row.id)}
+                  >
+                    使用
+                  </Button>,
+                )
+              } else if (isSuperAdmin) {
+                actions.push(
+                  <Button
+                    key="unmark"
+                    size="small"
+                    type="default"
+                    icon={<AppIcon name="lock" size={14} />}
+                    onClick={() => confirmUnmark(row.id)}
+                  >
+                    恢复
+                  </Button>,
+                )
+              }
+              if (isSuperAdmin) {
+                actions.push(
+                  <Button
+                    key="del"
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<AppIcon name="x-circle" size={14} />}
+                    onClick={() => confirmDelete(row.id)}
+                  >
+                    删除
+                  </Button>,
+                )
+              }
+              if (actions.length === 0) {
+                return <Text type="secondary">—</Text>
+              }
+              return <div className="row-actions">{actions}</div>
+            },
+          },
+        ]),
   ]
+
+  /** 空状态 / 无结果提示 */
+  const emptyNode = useMemo(() => {
+    if (allCodes.length === 0) {
+      return (
+        <div className="list-empty">
+          <AppIcon name="package" size={48} />
+          <p className="list-empty-title">暂无激活码数据</p>
+          <p className="list-empty-desc">点击上方「导入激活码」或「批量使用」开始添加</p>
+        </div>
+      )
+    }
+    if (filtered.length === 0) {
+      return (
+        <div className="list-empty">
+          <AppIcon name="search" size={48} />
+          <p className="list-empty-title">未找到匹配的结果</p>
+          <p className="list-empty-desc">
+            没有符合当前筛选条件的激活码，可调整关键词或
+            <Button type="link" size="small" className="list-empty-clear" onClick={clearFilters}>
+              清除筛选
+            </Button>
+          </p>
+        </div>
+      )
+    }
+    return undefined
+  }, [allCodes.length, filtered.length])
+
+  /* ===== 移动端：长按行弹出操作选择菜单（操作列在移动端不渲染，长按作为唯一触发入口） ===== */
+  function startLongPress(row: ActivationCode) {
+    cancelLongPress()
+    longPressTimer.current = window.setTimeout(() => {
+      navigator.vibrate?.(15)
+      setActionMenuRow(row)
+    }, 500)
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  function runRowAction(kind: 'use' | 'unmark' | 'delete', row: ActivationCode) {
+    // 先关闭操作菜单，待其离场清理（afterClose 释放滚动锁定）后再唤起确认弹窗，
+    // 避免两个弹窗的滚动锁定相互覆盖导致背景仍可滚动
+    setActionMenuRow(null)
+    window.setTimeout(() => {
+      if (kind === 'use') confirmMark(row.id)
+      else if (kind === 'unmark') confirmUnmark(row.id)
+      else confirmDelete(row.id)
+    }, 320)
+  }
 
   return (
     <div className="list-view">
@@ -525,15 +674,15 @@ export default function ListView() {
         </div>
         <div className="header-stats">
           <div className="header-stat">
-            <span className="header-stat-value">{listStats.total}</span>
+            <AnimatedNumber value={listStats.total} className="header-stat-value" />
             <span className="header-stat-label">总数</span>
           </div>
           <div className="header-stat">
-            <span className="header-stat-value text-success">{listStats.available}</span>
+            <AnimatedNumber value={listStats.available} className="header-stat-value text-success" />
             <span className="header-stat-label">可用</span>
           </div>
           <div className="header-stat">
-            <span className="header-stat-value text-danger">{listStats.used}</span>
+            <AnimatedNumber value={listStats.used} className="header-stat-value text-danger" />
             <span className="header-stat-label">已用</span>
           </div>
         </div>
@@ -650,13 +799,24 @@ export default function ListView() {
               ))}
             </div>
             <Input
-              value={keyword}
-              onChange={onKeywordChange}
+              value={searchText}
+              onChange={onSearchChange}
               placeholder="搜索激活码 / 备注 / 获取人"
               allowClear
               className="toolbar-search"
               prefix={<AppIcon name="search" size={16} />}
             />
+            {hasActiveFilter && (
+              <Button
+                size="middle"
+                type="text"
+                className="toolbar-clear"
+                icon={<AppIcon name="x-circle" size={16} />}
+                onClick={clearFilters}
+              >
+                清除筛选
+              </Button>
+            )}
           </div>
           <div className="toolbar-right">
             {selectedIds.length >= 2 && (
@@ -694,16 +854,27 @@ export default function ListView() {
           </div>
         </div>
 
-        <div className="table-scroll">
+        <div className="table-scroll" ref={tableRef}>
           <Table<ActivationCode>
             rowKey="id"
             columns={columns}
-            dataSource={codes}
+            dataSource={paged}
             loading={loading}
             bordered
             tableLayout="auto"
             scroll={{ x: 'max-content' }}
             pagination={false}
+            locale={{ emptyText: emptyNode }}
+            onRow={(record) => ({
+              onTouchStart: () => {
+                if (isMobile) startLongPress(record)
+              },
+              onTouchMove: () => cancelLongPress(),
+              onTouchEnd: () => cancelLongPress(),
+              onContextMenu: (e) => {
+                if (isMobile) e.preventDefault()
+              },
+            })}
             rowSelection={{
               type: 'checkbox',
               selectedRowKeys: selectedIds,
@@ -723,7 +894,10 @@ export default function ListView() {
               showQuickJumper
               pageSizeOptions={[10, 20, 50, 100]}
               showTotal={(t) => `共 ${t} 条`}
-              onChange={(p, s) => void loadCodes(filter, s !== pageSize ? 1 : p, keyword, s)}
+              onChange={(p, s) => {
+                setPageSize(s)
+                setPage(s !== pageSize ? 1 : p)
+              }}
             />
           </div>
         )}
@@ -870,6 +1044,63 @@ export default function ListView() {
             </Button>
           )}
         </div>
+      </Modal>
+
+      {/* 移动端：长按行弹出的操作选择菜单（操作列在移动端不渲染，长按作为唯一触发入口） */}
+      <Modal
+        open={!!actionMenuRow}
+        onCancel={() => setActionMenuRow(null)}
+        title="选择操作"
+        footer={null}
+        width={360}
+        className="row-action-sheet"
+        transitionName=""
+        destroyOnClose
+        afterClose={releaseModalOverlay}
+        maskClosable
+        closable
+      >
+        {actionMenuRow && (
+          <div className="action-sheet-list">
+            {!actionMenuRow.used && (
+              <button
+                type="button"
+                className="action-sheet-item"
+                onClick={() => runRowAction('use', actionMenuRow)}
+              >
+                <AppIcon name="check-circle" size={18} />
+                <span>使用</span>
+              </button>
+            )}
+            {actionMenuRow.used && isSuperAdmin && (
+              <button
+                type="button"
+                className="action-sheet-item"
+                onClick={() => runRowAction('unmark', actionMenuRow)}
+              >
+                <AppIcon name="lock" size={18} />
+                <span>恢复</span>
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                className="action-sheet-item danger"
+                onClick={() => runRowAction('delete', actionMenuRow)}
+              >
+                <AppIcon name="x-circle" size={18} />
+                <span>删除</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="action-sheet-item cancel"
+              onClick={() => setActionMenuRow(null)}
+            >
+              <span>取消</span>
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table'
 import { Button, Card, Pagination, Table, Typography } from 'antd'
 import { myCodes } from '@/api/codes'
 import { copyText, formatTime } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
+import { FadeIn } from '@/components/FadeIn'
 import type { ActivationCode } from '@/types'
 
 const { Text } = Typography
@@ -16,7 +17,7 @@ export default function MyCodesView() {
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
 
-  async function loadMyCodes(p: number, size: number = pageSize) {
+  const loadMyCodes = useCallback(async (p: number, size: number) => {
     setLoading(true)
     try {
       const data = await myCodes(p, size)
@@ -29,11 +30,11 @@ export default function MyCodesView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    void loadMyCodes(1)
-  }, [])
+    void loadMyCodes(1, 20)
+  }, [loadMyCodes])
 
   async function copyCode(code: string) {
     const ok = await copyText(code)
@@ -79,28 +80,30 @@ export default function MyCodesView() {
         <p className="page-subtitle">查看您获取过的激活码</p>
       </div>
 
-      <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
-        <Table<ActivationCode>
-          rowKey="id"
-          columns={columns}
-          dataSource={list}
-          loading={loading}
-          bordered
-          scroll={{ x: 600 }}
-          pagination={false}
-        />
-        {totalPages > 1 && (
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <Pagination
-              current={page}
-              pageSize={pageSize}
-              total={total}
-              onChange={(p) => void loadMyCodes(p)}
-              size="small"
-            />
-          </div>
-        )}
-      </Card>
+      <FadeIn animateOnMount={false}>
+        <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
+          <Table<ActivationCode>
+            rowKey="id"
+            columns={columns}
+            dataSource={list}
+            loading={loading}
+            bordered
+            scroll={{ x: 600 }}
+            pagination={false}
+          />
+          {totalPages > 1 && (
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <Pagination
+                current={page}
+                pageSize={pageSize}
+                total={total}
+                onChange={(p) => void loadMyCodes(p, pageSize)}
+                size="small"
+              />
+            </div>
+          )}
+        </Card>
+      </FadeIn>
     </div>
   )
 }

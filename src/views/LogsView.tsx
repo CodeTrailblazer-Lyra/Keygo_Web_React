@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table'
 import { Card, Pagination, Table, Tag, Typography } from 'antd'
 import { logs } from '@/api/logs'
 import { actionLabel, actionTagColor, formatTime } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError } from '@/utils/messageBridge'
+import { FadeIn } from '@/components/FadeIn'
 import type { OperationLog } from '@/types'
 
 const { Text } = Typography
@@ -16,7 +17,7 @@ export default function LogsView() {
   const [size, setSize] = useState(20)
   const [total, setTotal] = useState(0)
 
-  async function loadLogs(p: number, s: number = size) {
+  const loadLogs = useCallback(async (p: number, s: number) => {
     setLoading(true)
     try {
       const data = await logs(p, s)
@@ -29,11 +30,11 @@ export default function LogsView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    void loadLogs(1)
-  }, [])
+    void loadLogs(1, 20)
+  }, [loadLogs])
 
   const totalPages = Math.max(1, Math.ceil(total / size))
 
@@ -74,28 +75,30 @@ export default function LogsView() {
         <p className="page-subtitle">系统操作审计记录</p>
       </div>
 
-      <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
-        <Table<OperationLog>
-          rowKey="id"
-          columns={columns}
-          dataSource={list}
-          loading={loading}
-          bordered
-          scroll={{ x: 1000 }}
-          pagination={false}
-        />
-        {totalPages > 1 && (
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <Pagination
-              current={page}
-              pageSize={size}
-              total={total}
-              onChange={(p) => void loadLogs(p)}
-              size="small"
-            />
-          </div>
-        )}
-      </Card>
+      <FadeIn animateOnMount={false}>
+        <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
+          <Table<OperationLog>
+            rowKey="id"
+            columns={columns}
+            dataSource={list}
+            loading={loading}
+            bordered
+            scroll={{ x: 1000 }}
+            pagination={false}
+          />
+          {totalPages > 1 && (
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <Pagination
+                current={page}
+                pageSize={size}
+                total={total}
+                onChange={(p) => void loadLogs(p, size)}
+                size="small"
+              />
+            </div>
+          )}
+        </Card>
+      </FadeIn>
     </div>
   )
 }

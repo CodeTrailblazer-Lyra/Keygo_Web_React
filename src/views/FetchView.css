@@ -49,23 +49,9 @@
   border-radius: 14px;
 }
 
-.announcement-content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  width: 100%;
-}
-
 .announcement-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.announcement-meta {
-  font-size: 12px;
-  color: #94a3b8;
-  white-space: nowrap;
+  display: block;
+  width: 100%;
 }
 
 .claim-modal-body {
@@ -134,10 +120,6 @@ html[data-theme='dark'] .stat-label {
   color: #94a3b8;
 }
 
-html[data-theme='dark'] .announcement-meta {
-  color: #64748b;
-}
-
 html[data-theme='dark'] .claim-modal-text {
   color: #f1f5f9;
 }
@@ -154,29 +136,27 @@ html[data-theme='dark'] .claim-unit-label {
 @media (max-width: 768px) {
   .stat-card-inner {
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
     align-items: center;
     text-align: center;
   }
 
+  /* 与查询界面统计样式对齐：隐藏图标，仅保留数值 + 标签 */
   .stat-icon {
-    font-size: 22px;
+    display: none;
+  }
+
+  .stat-card .ant-card-body {
+    padding: 10px 8px !important;
   }
 
   .stat-value {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .stat-label {
-    font-size: 11px;
-  }
-
-  .announcement-content {
-    gap: 6px;
-  }
-
-  .announcement-meta {
-    font-size: 11px;
+    font-size: 12px;
+    margin-top: 0;
   }
 
   .claim-modal-body {

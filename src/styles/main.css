@@ -46,6 +46,63 @@ body {
   min-height: 100vh;
 }
 
+/* ===== 修复 antd Modal 打开时整页横向位移 / 闪烁 =====
+   antd 的滚动锁定（rc-util scrollLocker）会给 <body> 设置
+   width: calc(100% - 15px) + overflow:hidden（类 ant-scrolling-effect）。
+   本应用滚动容器是 <html>，body 宽度本就为 100%，该收窄会导致
+   居中的 .page-container 左右闪动。这里把宽度恢复为 100%，
+   仅消除位移、保留滚动锁定，打开 / 关闭弹窗时页面不再跳动。 */
+body.ant-scrolling-effect {
+  width: 100% !important;
+}
+
+/* ===== 修复移动端弹窗滚动穿透（scroll bleed）=====
+   antd 滚动锁定只给 <body> 加 ant-scrolling-effect（overflow:hidden + 宽度收窄），
+   但本应用真实可滚动容器是 <html>，仅锁 body 无法阻止触摸滑动穿透到根页面——
+   表现为在「获取激活码」弹窗里滑动单位选择列表时，底层 root 也一起滚。
+   这里用两种互补手段锁定 <html>：
+   1) JS（initModalScrollLock）：监听 body 的 ant-scrolling-effect 增删，同步
+      documentElement.style.overflow，兼容所有浏览器（主保障）；
+   2) 纯 CSS :has()：当 html 的任何后代带 ant-scrolling-effect 时锁定自身，
+      作为零 JS 的兜底（现代浏览器均支持）。
+   弹窗内部的单位选择列表 / 弹窗 body 各自维护独立滚动容器，仍可正常滚动。 */
+/* 锁定真实滚动容器 <html>：覆盖「类挂在其自身」「类挂在 <body>」「类挂在任意后代」三种情形，
+   保证弹窗（含使用单位下拉）打开期间根页面无法滚动，彻底消除下拉与底部同步滑动的卡顿。
+   与上方 JS 兜底（initModalScrollLock）互为补充，任一生效即可。 */
+html.ant-scrolling-effect,
+body.ant-scrolling-effect,
+html:has(.ant-scrolling-effect) {
+  overflow: hidden !important;
+}
+
+/* 弹窗内部可滚动区域隔离滚动链：到达边界时不再向根页面 / 弹窗外层链动，
+   彻底杜绝越界时带动背景，且不影响区域自身的正常滚动。 */
+.ant-modal-wrap,
+.ant-modal-body,
+.ant-select-dropdown .ant-select-item-options,
+.ant-select-dropdown .rc-virtual-list-holder {
+  overscroll-behavior: contain;
+}
+
+/* ===== 统一弹窗居中（覆盖所有弹窗入口）=====
+   问题：antd Modal 默认 top:100px（仅水平居中、垂直偏上）；Modal.confirm / appConfirm
+   等确认弹窗同样无垂直居中；各入口定位不统一。
+   方案：将 .ant-modal-wrap 强制为 flex 容器，弹窗 .ant-modal 以 margin:auto 双向居中——
+   flex 子项的 auto margin 既实现水平 + 垂直居中，又在内容超高时回落为从顶部可滚动（无顶部裁切）。
+   该规则作用于全部 Modal / Modal.confirm（立即获取、查询页操作、修改密码、发布公告、删除确认等），
+   无需逐个设置 centered，统一覆盖所有触发入口，并在各屏幕尺寸下保持居中。 */
+.ant-modal-wrap {
+  display: flex !important;
+  padding: 16px !important;
+}
+
+.ant-modal {
+  top: 0 !important;
+  margin: auto !important;
+  padding-bottom: 0 !important;
+  max-width: calc(100vw - 32px) !important;
+}
+
 /* ===== 主容器 ===== */
 .page-container {
   max-width: 1200px;
@@ -70,16 +127,39 @@ body {
   margin: 0;
 }
 
-/* ===== 激活码展示 ===== */
+/* ===== 激活码展示（全局：查询页与「我的」页共用，首次加载即生效） ===== */
 .code-chip {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
-  letter-spacing: 0.04em;
-  padding: 4px 8px;
-  background: #f1f5f9;
-  border-radius: 10px;
-  color: #334155;
-  word-break: break-all;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 10px;
+  background: #f0fdf4;
+  color: #059669;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  display: inline-block;
+  white-space: nowrap;
+  /* 点击即复制：禁用系统文本选中（高亮/光标/长按菜单），避免与复制手势冲突 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.code-chip:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.code-chip:active {
+  transform: scale(0.96);
+}
+
+.code-chip:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
 }
 
 /* ===== 公告栏 ===== */
@@ -232,24 +312,59 @@ body {
    全局动画
    ============================================ */
 
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* 页面切换容器：relative 供退场页绝对定位重叠；overflow-x:clip 裁剪离屏滑动页，
+   避免横向滚动条，且不影响纵向滚动（clip 不会把另一轴降级为 auto）。 */
+.page-transition {
+  position: relative;
+  overflow-x: clip;
 }
 
 .page-view {
-  animation: page-enter 0.3s var(--ease-out);
-}
-
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  width: 100%;
 }
 
 @keyframes pop-in {
   0% { opacity: 0; transform: scale(0.8); }
   60% { transform: scale(1.04); }
   100% { opacity: 1; transform: scale(1); }
+}
+
+/* ===== 统一交互动效（全局，GPU 友好的 transform） ===== */
+/* 自定义可交互元素：hover 轻微上浮 + active 轻微下压，提供明确操作反馈。
+   不用常驻 will-change：它会长期占用合成层内存，而这类短时 transform 过渡浏览器本就会合成 */
+.desktop-nav-item,
+.mobile-tab-item,
+.app-brand,
+.action-card {
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease;
+}
+
+.desktop-nav-item:hover,
+.mobile-tab-item:hover,
+.app-brand:hover,
+.action-card:hover {
+  transform: translateY(-1px);
+}
+
+.desktop-nav-item:active,
+.mobile-tab-item:active,
+.app-brand:active,
+.action-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.desktop-nav-item:focus-visible,
+.mobile-tab-item:focus-visible,
+.app-brand:focus-visible,
+.action-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* antd 按钮按压反馈：复用 antd 自带 transition: all，仅补 transform scale，
+   不覆盖 antd 原有过渡，长按时整颗按钮轻微回缩，给出点击确认感 */
+.ant-btn:active {
+  transform: scale(0.97);
 }
 
 /* 品牌图标 hover */
@@ -305,8 +420,14 @@ html[data-theme='dark'] .claim-desc {
 }
 
 html[data-theme='dark'] .code-chip {
-  background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
+  background: rgba(22, 163, 74, 0.12);
+  color: #4ade80;
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+html[data-theme='dark'] .code-chip:hover {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.5);
 }
 
 html[data-theme='dark'] .claim-icon {
@@ -409,5 +530,21 @@ html[data-theme='dark'] .batch-result-item:hover {
   .batch-result-item {
     padding: 6px 10px;
     font-size: 13px;
+  }
+}
+
+/* ============================================
+   无障碍：尊重「减少动效」系统偏好
+   同时覆盖 CSS 过渡 / 动画 与（作为兜底）任何遗漏的 transform。
+   Motion 组件已由 App 根部 MotionConfig reducedMotion="user" 统一接管。
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

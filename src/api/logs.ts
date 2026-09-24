@@ -15,9 +15,18 @@ export async function announcements(): Promise<Announcement[]> {
   return res.data
 }
 
-/** 发布公告（仅管理员） */
-export async function publishAnnouncement(content: string, pinned: boolean): Promise<void> {
-  await request.post('/api/v1/announcements', { content, pinned })
+/** 发布公告（仅管理员）；visible 控制是否在获取页展示，缺省展示 */
+export async function publishAnnouncement(
+  content: string,
+  pinned: boolean,
+  visible: boolean = true,
+): Promise<void> {
+  await request.post('/api/v1/announcements', { content, pinned, visible })
+}
+
+/** 更新公告展示状态（仅管理员） */
+export async function updateAnnouncementVisible(id: number, visible: boolean): Promise<void> {
+  await request.put(`/api/v1/announcements/${id}`, { visible })
 }
 
 /** 删除公告（仅管理员） */

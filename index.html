@@ -23,21 +23,7 @@
   </script>
 
   <!-- antd reset.css 已改为本地依赖引入（main.tsx），避免 CDN 被浏览器跟踪防护拦截 -->
-
-  <!-- ===== CDN: Importmap（React + antd + icons + react-19 patch）via esm.sh ===== -->
-  <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@19.2.8",
-      "react/jsx-runtime": "https://esm.sh/react@19.2.8/jsx-runtime",
-      "react-dom": "https://esm.sh/react-dom@19.2.8?external=react",
-      "react-dom/client": "https://esm.sh/react-dom@19.2.8/client?external=react",
-      "antd": "https://esm.sh/antd@5.29.3?external=react,react-dom,@ant-design/icons",
-      "@ant-design/icons": "https://esm.sh/@ant-design/icons@5.6.1?external=react,react-dom",
-      "@ant-design/v5-patch-for-react-19": "https://esm.sh/@ant-design/v5-patch-for-react-19@1.0.3?external=react,react-dom,antd"
-    }
-  }
-  </script>
+  <!-- React / antd / icons 全部本地打包（vite.config.ts），不依赖任何外部 CDN，保证生产环境可离线部署 -->
 
   <!-- 首屏加载动画，提升感知性能 -->
   <style>

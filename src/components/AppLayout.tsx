@@ -94,8 +94,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void checkPending()
-    const pollTimer = setInterval(checkPending, 30000)
-    return () => clearInterval(pollTimer)
+    // 标签页隐藏时暂停轮询（避免后台空耗请求），回到前台立即刷新一次
+    const pollTimer = setInterval(() => {
+      if (!document.hidden) void checkPending()
+    }, 30000)
+    const onVisible = () => {
+      if (!document.hidden) void checkPending()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(pollTimer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [checkPending])
 
   /* ===== 移动端 resize 监听 ===== */
