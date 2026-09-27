@@ -1,35 +1,44 @@
 /* ============================================
-   KeyGo - 激活码分发管理系统 (Ant Design 版)
-   视觉风格：扁平化设计 + 静态毛玻璃点缀
+   KeyGo - 激活码分发管理系统
+   设计风格：Ant Design 规范 · 简洁专业
    ============================================ */
 
 :root {
   --primary: #6366f1;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* ===== 静态毛玻璃（仅导航栏 / 移动端 Tab Bar）===== */
-  /* 固定 blur，无渐变流动、无反射光带等动态效果 */
-  --frost-bg: rgba(255, 255, 255, 0.8);
-  --frost-blur: blur(12px);
-  --frost-border: 1px solid rgba(15, 23, 42, 0.08);
-  --frost-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  /* 页面背景 */
+  --page-bg: #f5f7fa;
 
-  /* ===== 扁平化卡片 ===== */
+  /* 卡片样式 */
   --card-bg: #ffffff;
-  --card-border: 1px solid #e2e8f0;
-  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --card-border: #e8ecf0;
   --card-radius: 12px;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
-  /* ===== 扁平药丸指示器（导航滑动高亮）===== */
-  --pill-bg: rgba(99, 102, 241, 0.1);
-  --pill-shadow: none;
+  /* 导航栏 */
+  --header-bg: #ffffff;
+  --header-border: #e8ecf0;
+  --header-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+  /* 文字颜色 */
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
+html {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -37,46 +46,30 @@ body {
 }
 
 body {
-  background: #f4f6f9;
-  color: #1e293b;
+  background: var(--page-bg);
+  color: var(--text-primary);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* ===== 修复 antd Modal 打开时整页横向位移 / 闪烁 =====
-   antd 的滚动锁定（rc-util scrollLocker）会给 <body> 设置
-   width: calc(100% - 15px) + overflow:hidden（类 ant-scrolling-effect）。
-   本应用滚动容器是 <html>，body 宽度本就为 100%，该收窄会导致
-   居中的 .page-container 左右闪动。这里把宽度恢复为 100%，
-   仅消除位移、保留滚动锁定，打开 / 关闭弹窗时页面不再跳动。 */
+/* 修复 antd Modal 滚动锁定导致的页面位移 */
 body.ant-scrolling-effect {
   width: 100% !important;
 }
 
-/* ===== 修复移动端弹窗滚动穿透（scroll bleed）=====
-   antd 滚动锁定只给 <body> 加 ant-scrolling-effect（overflow:hidden + 宽度收窄），
-   但本应用真实可滚动容器是 <html>，仅锁 body 无法阻止触摸滑动穿透到根页面——
-   表现为在「获取激活码」弹窗里滑动单位选择列表时，底层 root 也一起滚。
-   这里用两种互补手段锁定 <html>：
-   1) JS（initModalScrollLock）：监听 body 的 ant-scrolling-effect 增删，同步
-      documentElement.style.overflow，兼容所有浏览器（主保障）；
-   2) 纯 CSS :has()：当 html 的任何后代带 ant-scrolling-effect 时锁定自身，
-      作为零 JS 的兜底（现代浏览器均支持）。
-   弹窗内部的单位选择列表 / 弹窗 body 各自维护独立滚动容器，仍可正常滚动。 */
-/* 锁定真实滚动容器 <html>：覆盖「类挂在其自身」「类挂在 <body>」「类挂在任意后代」三种情形，
-   保证弹窗（含使用单位下拉）打开期间根页面无法滚动，彻底消除下拉与底部同步滑动的卡顿。
-   与上方 JS 兜底（initModalScrollLock）互为补充，任一生效即可。 */
+/* 弹窗打开时锁定滚动容器 */
 html.ant-scrolling-effect,
 body.ant-scrolling-effect,
 html:has(.ant-scrolling-effect) {
   overflow: hidden !important;
 }
 
-/* 弹窗内部可滚动区域隔离滚动链：到达边界时不再向根页面 / 弹窗外层链动，
-   彻底杜绝越界时带动背景，且不影响区域自身的正常滚动。 */
+/* 弹窗内部滚动隔离 */
 .ant-modal-wrap,
 .ant-modal-body,
 .ant-select-dropdown .ant-select-item-options,
@@ -84,13 +77,7 @@ html:has(.ant-scrolling-effect) {
   overscroll-behavior: contain;
 }
 
-/* ===== 统一弹窗居中（覆盖所有弹窗入口）=====
-   问题：antd Modal 默认 top:100px（仅水平居中、垂直偏上）；Modal.confirm / appConfirm
-   等确认弹窗同样无垂直居中；各入口定位不统一。
-   方案：将 .ant-modal-wrap 强制为 flex 容器，弹窗 .ant-modal 以 margin:auto 双向居中——
-   flex 子项的 auto margin 既实现水平 + 垂直居中，又在内容超高时回落为从顶部可滚动（无顶部裁切）。
-   该规则作用于全部 Modal / Modal.confirm（立即获取、查询页操作、修改密码、发布公告、删除确认等），
-   无需逐个设置 centered，统一覆盖所有触发入口，并在各屏幕尺寸下保持居中。 */
+/* 弹窗居中 */
 .ant-modal-wrap {
   display: flex !important;
   padding: 16px !important;
@@ -107,7 +94,7 @@ html:has(.ant-scrolling-effect) {
 .page-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 24px;
 }
 
 .page-header-block {
@@ -115,37 +102,37 @@ html:has(.ant-scrolling-effect) {
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   margin: 0 0 4px;
+  line-height: 1.4;
 }
 
 .page-subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
 }
 
-/* ===== 激活码展示（全局：查询页与「我的」页共用，首次加载即生效） ===== */
+/* ===== 激活码展示 ===== */
 .code-chip {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  padding: 2px 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
   background: #f0fdf4;
-  color: #059669;
+  color: #16a34a;
   border: 1px solid #bbf7d0;
-  border-radius: 8px;
+  border-radius: 6px;
   display: inline-block;
   white-space: nowrap;
-  /* 点击即复制：禁用系统文本选中（高亮/光标/长按菜单），避免与复制手势冲突 */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition: all 0.15s ease;
 }
 
 .code-chip:hover {
@@ -154,7 +141,7 @@ html:has(.ant-scrolling-effect) {
 }
 
 .code-chip:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .code-chip:focus-visible {
@@ -162,158 +149,44 @@ html:has(.ant-scrolling-effect) {
   outline-offset: 2px;
 }
 
-/* ===== 公告栏 ===== */
-.announcement-list {
-  margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* ===== 申领区域 ===== */
-.claim-section {
-  text-align: center;
-  padding: 48px 24px;
-}
-
-.claim-icon {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 20px;
-  background: #eef2ff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
-  color: #6366f1;
-}
-
-.claim-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0 0 8px;
-}
-
-.claim-desc {
-  color: #64748b;
-  margin: 0 0 28px;
-  font-size: 15px;
-}
-
-/* ===== 拖拽上传区 ===== */
-.drop-zone {
-  border: 2px dashed #cbd5e1;
-  border-radius: 10px;
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.25s ease, background 0.25s ease;
-  background: #f8fafc;
-}
-
-.drop-zone:hover,
-.drop-zone.drag-over {
-  border-color: #6366f1;
-  background: #eef2ff;
-}
-
-.drop-zone-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.drop-zone-text {
-  color: #475569;
-  font-weight: 500;
-}
-
-.drop-zone-text span {
-  color: #6366f1;
-  text-decoration: underline;
-}
-
-.drop-zone-hint {
+/* 哈希码占位 */
+.code-chip--placeholder {
+  background: #f5f5f5;
+  color: #999999;
+  border-color: #e5e5e5;
+  cursor: default;
   font-size: 12px;
-  color: #94a3b8;
-  margin-top: 8px;
 }
 
-/* ===== 申领结果展示 ===== */
-.claim-code-display {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  padding: 16px 24px;
-  background: #f0fdf4;
-  color: #059669;
-  border-radius: 12px;
-  display: inline-block;
-  white-space: nowrap;
-  max-width: 100%;
-  user-select: all;
-  border: 1px solid #bbf7d0;
-  animation: pop-in 0.4s var(--ease-out);
+.code-chip--placeholder:hover {
+  background: #f5f5f5;
+  border-color: #e5e5e5;
 }
 
-/* ===== 批量获取结果 ===== */
-.batch-result-box {
-  max-height: 280px;
-  overflow-y: auto;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
+.code-chip--placeholder:active {
+  transform: none;
 }
 
-.batch-result-item {
-  padding: 8px 12px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  letter-spacing: 1px;
-  color: #059669;
-  font-weight: 600;
-  /* 点击即复制：禁用系统文本选中（高亮/光标/长按菜单），避免与复制手势冲突 */
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  border-radius: 8px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s ease;
-}
-
-.batch-result-item:hover {
-  background: #ecfdf5;
-}
-
-.batch-result-item:active {
-  transform: scale(0.99);
-}
-
-/* ===== 扁平化卡片 ===== */
+/* ===== 卡片通用样式 ===== */
 .table-card {
   border-radius: var(--card-radius);
   overflow: hidden;
   background: var(--card-bg) !important;
-  border: var(--card-border);
+  border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
+.table-card .ant-card-head {
+  border-bottom: 1px solid var(--card-border);
 }
 
-/* ============================================
-   全局动画
-   ============================================ */
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
 
-/* 页面切换容器：relative 供退场页绝对定位重叠；overflow-x:clip 裁剪离屏滑动页，
-   避免横向滚动条，且不影响纵向滚动（clip 不会把另一轴降级为 auto）。 */
+/* ===== 动画 ===== */
 .page-transition {
   position: relative;
   overflow-x: clip;
@@ -324,33 +197,23 @@ html:has(.ant-scrolling-effect) {
 }
 
 @keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.8); }
-  60% { transform: scale(1.04); }
+  0% { opacity: 0; transform: scale(0.9); }
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* ===== 统一交互动效（全局，GPU 友好的 transform） ===== */
-/* 自定义可交互元素：hover 轻微上浮 + active 轻微下压，提供明确操作反馈。
-   不用常驻 will-change：它会长期占用合成层内存，而这类短时 transform 过渡浏览器本就会合成 */
+/* 交互元素过渡 */
 .desktop-nav-item,
 .mobile-tab-item,
 .app-brand,
 .action-card {
-  transition: transform 0.18s var(--ease-out), box-shadow 0.18s ease;
-}
-
-.desktop-nav-item:hover,
-.mobile-tab-item:hover,
-.app-brand:hover,
-.action-card:hover {
-  transform: translateY(-1px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .desktop-nav-item:active,
 .mobile-tab-item:active,
 .app-brand:active,
 .action-card:active {
-  transform: translateY(0) scale(0.98);
+  transform: scale(0.97);
 }
 
 .desktop-nav-item:focus-visible,
@@ -361,22 +224,21 @@ html:has(.ant-scrolling-effect) {
   outline-offset: 2px;
 }
 
-/* antd 按钮按压反馈：复用 antd 自带 transition: all，仅补 transform scale，
-   不覆盖 antd 原有过渡，长按时整颗按钮轻微回缩，给出点击确认感 */
+/* antd 按钮按压反馈 */
 .ant-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
-/* 品牌图标 hover */
+/* 品牌图标动画 */
 .app-brand-icon {
-  transition: transform 0.25s var(--ease-out);
+  transition: transform 0.2s ease;
 }
 
 .app-brand:hover .app-brand-icon {
-  transform: scale(1.1) rotate(-6deg);
+  transform: scale(1.05);
 }
 
-/* 卡片 hover（扁平：仅加深阴影，无位移） */
+/* 卡片悬停 */
 .stat-card,
 .claim-card,
 .table-card {
@@ -385,88 +247,60 @@ html:has(.ant-scrolling-effect) {
 
 .stat-card:hover,
 .claim-card:hover {
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* ============================================
-   暗色主题（html[data-theme='dark']）
-   通过覆盖扁平化变量 + 关键文字/背景色实现整体适配
-   ============================================ */
+/* ===== 暗色主题 ===== */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --frost-bg: rgba(17, 24, 39, 0.85);
-  --frost-border: 1px solid rgba(148, 163, 184, 0.16);
-  --frost-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --card-bg: #141b2b;
-  --card-border: 1px solid #263145;
+  --page-bg: #0f1419;
+  --card-bg: #1a1f2e;
+  --card-border: #2a3040;
   --card-shadow: none;
-  --pill-bg: rgba(99, 102, 241, 0.22);
+  --header-bg: #1a1f2e;
+  --header-border: #2a3040;
+  --header-shadow: none;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --text-tertiary: #6b7280;
 }
 
 html[data-theme='dark'] body {
-  background: #0d1220;
-  color: #e2e8f0;
+  background: var(--page-bg);
+  color: var(--text-primary);
 }
 
 html[data-theme='dark'] .page-title,
 html[data-theme='dark'] .claim-title,
 html[data-theme='dark'] .card-title {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 html[data-theme='dark'] .page-subtitle,
 html[data-theme='dark'] .claim-desc {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 html[data-theme='dark'] .code-chip {
-  background: rgba(22, 163, 74, 0.12);
+  background: rgba(22, 163, 74, 0.15);
   color: #4ade80;
-  border-color: rgba(22, 163, 74, 0.35);
+  border-color: rgba(22, 163, 74, 0.3);
 }
 
 html[data-theme='dark'] .code-chip:hover {
-  background: rgba(22, 163, 74, 0.2);
-  border-color: rgba(22, 163, 74, 0.5);
+  background: rgba(22, 163, 74, 0.25);
+  border-color: rgba(22, 163, 74, 0.4);
 }
 
-html[data-theme='dark'] .claim-icon {
-  background: rgba(99, 102, 241, 0.16);
-  color: #a5b4fc;
+html[data-theme='dark'] .code-chip--placeholder {
+  background: #252525;
+  color: #666666;
+  border-color: #333333;
 }
 
-html[data-theme='dark'] .drop-zone {
-  border-color: #475569;
-  background: rgba(30, 41, 59, 0.5);
-}
-
-html[data-theme='dark'] .drop-zone:hover,
-html[data-theme='dark'] .drop-zone.drag-over {
-  border-color: #6366f1;
-  background: rgba(99, 102, 241, 0.14);
-}
-
-html[data-theme='dark'] .drop-zone-text {
-  color: #cbd5e1;
-}
-
-html[data-theme='dark'] .drop-zone-hint {
-  color: #64748b;
-}
-
-html[data-theme='dark'] .claim-code-display {
-  background: rgba(22, 163, 74, 0.12);
-  color: #4ade80;
-  border-color: rgba(22, 163, 74, 0.35);
-}
-
-html[data-theme='dark'] .batch-result-box {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(148, 163, 184, 0.18);
-}
-
-html[data-theme='dark'] .batch-result-item:hover {
-  background: rgba(22, 163, 74, 0.12);
+html[data-theme='dark'] .code-chip--placeholder:hover {
+  background: #252525;
+  border-color: #333333;
 }
 
 /* ===== 响应式 ===== */
@@ -477,7 +311,7 @@ html[data-theme='dark'] .batch-result-item:hover {
   }
 
   .page-container {
-    padding: 16px 12px calc(96px + env(safe-area-inset-bottom));
+    padding: 16px 12px calc(80px + env(safe-area-inset-bottom));
     max-width: 100%;
   }
 
@@ -486,58 +320,16 @@ html[data-theme='dark'] .batch-result-item:hover {
   }
 
   .page-title {
-    font-size: 20px;
-  }
-
-  .claim-section {
-    padding: 28px 12px;
-  }
-
-  .claim-icon {
-    width: 72px;
-    height: 72px;
-    font-size: 32px;
-  }
-
-  .claim-title {
-    font-size: 20px;
-  }
-
-  .drop-zone {
-    padding: 28px 16px;
-  }
-
-  .drop-zone-icon {
-    font-size: 36px;
+    font-size: 18px;
   }
 
   .code-chip {
     font-size: 12px;
-    letter-spacing: 0.02em;
-  }
-
-  .claim-code-display {
-    font-size: 16px;
-    letter-spacing: 1px;
-    padding: 12px 16px;
-  }
-
-  .batch-result-box {
-    max-height: 220px;
-    padding: 8px;
-  }
-
-  .batch-result-item {
-    padding: 6px 10px;
-    font-size: 13px;
+    padding: 2px 8px;
   }
 }
 
-/* ============================================
-   无障碍：尊重「减少动效」系统偏好
-   同时覆盖 CSS 过渡 / 动画 与（作为兜底）任何遗漏的 transform。
-   Motion 组件已由 App 根部 MotionConfig reducedMotion="user" 统一接管。
-   ============================================ */
+/* ===== 无障碍：减少动效 ===== */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

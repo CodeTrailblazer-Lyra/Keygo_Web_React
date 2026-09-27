@@ -1,0 +1,98 @@
+/* ===== 我的激活码 ===== */
+.my-codes-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.my-codes-summary-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.my-codes-summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.my-codes-summary-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ===== 表格 ===== */
+.my-codes-table .ant-table-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.my-codes-table .ant-table-cell {
+  white-space: nowrap;
+}
+
+.my-codes-table .ant-table-tbody > tr:hover > td {
+  background: #f5f7ff;
+}
+
+.my-codes-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+/* ===== 暗色主题 ===== */
+html[data-theme='dark'] .my-codes-summary-stat {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+html[data-theme='dark'] .my-codes-summary-value {
+  color: var(--text-primary);
+}
+
+html[data-theme='dark'] .my-codes-table .ant-table-thead > tr > th {
+  background: rgba(30, 41, 59, 0.65);
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .my-codes-table .ant-table-tbody > tr:hover > td {
+  background: rgba(99, 102, 241, 0.09);
+}
+
+/* ===== 移动端 ===== */
+@media (max-width: 768px) {
+  .my-codes-summary {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .my-codes-summary-stat {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 12px;
+  }
+
+  .my-codes-summary-value {
+    font-size: 16px;
+  }
+
+  .my-codes-summary-label {
+    font-size: 12px;
+  }
+
+  .my-codes-table .ant-table-content {
+    overflow-x: auto;
+  }
+}

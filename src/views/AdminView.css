@@ -1,11 +1,38 @@
-/* ===== 双栏布局：使用单位 : 系统公告 = 2 : 1 ===== */
-/* 宽屏按 2:1 比例分栏（各自按内容高度、顶部对齐），窄屏自动退化为单列堆叠 */
+/* ===== 管理区段标题 ===== */
+.admin-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.admin-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 11px;
+}
+
+/* ===== 双栏布局：使用单位 : 系统公告 ===== */
 .admin-masonry {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
   margin-top: 16px;
-  /* 每列卡片按自身内容高度，互不拉伸对齐（不跟随对方高度） */
   align-items: start;
 }
 
@@ -13,24 +40,55 @@
   min-width: 0;
 }
 
-/* ===== 系统公告卡片 ===== */
+/* ===== 使用单位 ===== */
+.units-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.units-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.units-add-input {
+  width: 240px;
+}
+
+.units-hint {
+  display: block;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ===== 系统公告 ===== */
 .announce-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .announce-hint {
   display: block;
   margin-top: 8px;
+  margin-bottom: 12px;
   font-size: 13px;
   line-height: 1.6;
+  color: var(--text-secondary);
 }
 
-/* 公告管理列表 */
 .announce-list {
   display: flex;
   flex-direction: column;
@@ -43,16 +101,22 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e8ecf0;
   border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.announce-row:hover {
+  border-color: #d0d5dd;
+  background: #f1f5f9;
 }
 
 .announce-row-main {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
@@ -62,7 +126,6 @@
   margin-inline-start: 0;
 }
 
-/* 公告内容：高度由 motion 控制（折叠 44px / 展开 auto），这里只负责文字样式与裁切 */
 .announce-content-col {
   display: flex;
   flex-direction: column;
@@ -79,7 +142,6 @@
   word-break: break-all;
 }
 
-/* 折叠态内容框固定高度（由 motion 控制），文字在框内垂直居中，避免偏上显示 */
 .announce-row-content > span {
   flex: 1;
   min-width: 0;
@@ -110,34 +172,38 @@
   font-size: 12px;
 }
 
-/* ===== 使用单位 ===== */
-.units-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.units-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.units-add-input {
-  width: 240px;
-}
-
-.units-hint {
-  display: block;
-  margin-top: 8px;
+/* ===== 表格统一样式 ===== */
+.admin-table .ant-table-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
   font-size: 13px;
-  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.admin-table .ant-table-cell {
+  white-space: nowrap;
+}
+
+.admin-table .ant-table-tbody > tr:hover > td {
+  background: #f5f7ff;
+}
+
+.admin-table .ant-table-cell-fix-right {
+  background: #ffffff;
+}
+
+.admin-table .ant-table-tbody > tr:hover > td.ant-table-cell-fix-right {
+  background: #f5f7ff;
 }
 
 /* ===== 暗色主题 ===== */
+html[data-theme='dark'] .admin-section-badge {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
 html[data-theme='dark'] .units-hint,
 html[data-theme='dark'] .announce-hint {
   color: #94a3b8;
@@ -145,13 +211,33 @@ html[data-theme='dark'] .announce-hint {
 
 html[data-theme='dark'] .announce-row {
   background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+html[data-theme='dark'] .announce-row:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(148, 163, 184, 0.25);
 }
 
 html[data-theme='dark'] .announce-row-content {
-  display: flex;
-  align-items: center;
   color: #cbd5e1;
+}
+
+html[data-theme='dark'] .admin-table .ant-table-thead > tr > th {
+  background: rgba(30, 41, 59, 0.65);
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .admin-table .ant-table-tbody > tr:hover > td {
+  background: rgba(99, 102, 241, 0.09);
+}
+
+html[data-theme='dark'] .admin-table .ant-table-cell-fix-right {
+  background: #1a1f2e;
+}
+
+html[data-theme='dark'] .admin-table .ant-table-tbody > tr:hover > td.ant-table-cell-fix-right {
+  background: rgba(99, 102, 241, 0.09);
 }
 
 /* ===== 移动端适配 ===== */
@@ -170,11 +256,15 @@ html[data-theme='dark'] .announce-row-content {
     width: auto;
     min-width: 0;
   }
+
+  .admin-table .ant-table-content {
+    overflow-x: auto;
+  }
 }
 
-/* 宽屏启用 2:1 双栏；中窄屏保持单列堆叠 */
+/* 宽屏双栏 */
 @media (min-width: 992px) {
   .admin-masonry {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 3fr 2fr;
   }
 }

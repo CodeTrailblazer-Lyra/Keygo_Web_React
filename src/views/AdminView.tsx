@@ -42,6 +42,7 @@ import type { Announcement, SysUser, UsageUnit } from '@/types'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess } from '@/utils/messageBridge'
 import { appConfirm } from '@/utils/antdAppBridge'
+import { releaseModalOverlay } from '@/utils/modalScrollLock'
 import AppIcon from '@/components/AppIcon'
 import { FadeIn } from '@/components/FadeIn'
 import { durations, easings } from '@/anim/motion'
@@ -457,15 +458,14 @@ export default function AdminView() {
           variant="outlined"
           style={{ marginBottom: 16 }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Tag color="red">{pendingList.length}</Tag>
-            <Text strong className="card-title">
-              待审核用户
-            </Text>
+          <div className="admin-section-header">
+            <span className="admin-section-badge">{pendingList.length}</span>
+            <span className="admin-section-title">待审核用户</span>
           </div>
           <Table<PendingUser>
             rowKey="id"
             columns={pendingColumns}
+            className="admin-table"
             dataSource={pendingList}
             loading={pendingLoading}
             bordered
@@ -478,14 +478,13 @@ export default function AdminView() {
 
       <FadeIn delay={0.04} animateOnMount={false}>
       <Card className="table-card" styles={{ body: { padding: 24 } }} variant="outlined">
-        <div style={{ marginBottom: 12 }}>
-          <Text strong className="card-title">
-            用户管理
-          </Text>
+        <div className="admin-section-header">
+          <span className="admin-section-title">用户管理</span>
         </div>
         <Table<SysUser>
           rowKey="id"
           columns={userColumns}
+          className="admin-table"
           dataSource={allUsersList}
           loading={usersLoading}
           bordered
@@ -545,6 +544,7 @@ export default function AdminView() {
           <Table<UsageUnit>
             rowKey="id"
             columns={unitColumns}
+            className="admin-table"
             dataSource={unitsList}
             loading={unitsLoading}
             bordered
@@ -612,7 +612,7 @@ export default function AdminView() {
                         <motion.div
                           className="announce-row-content"
                           initial={false}
-                          animate={{ height: expanded ? 'auto' : 44 }}
+                          animate={{ height: expanded ? 'auto' : 22 }}
                           transition={{ duration: durations.base, ease: easings.out }}
                           style={{ overflow: 'hidden' }}
                         >
@@ -669,6 +669,8 @@ export default function AdminView() {
         width={420}
         closable
         maskClosable={false}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Text type="secondary">
@@ -704,6 +706,8 @@ export default function AdminView() {
         width={520}
         closable
         maskClosable={false}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Input.TextArea

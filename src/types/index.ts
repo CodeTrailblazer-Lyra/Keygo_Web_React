@@ -6,7 +6,8 @@ export interface UserInfo {
 
 export interface ActivationCode {
   id: number
-  code: string
+  /** 后端哈希化改造后新生成的码不落明文，列表类接口返回 null（明文仅在生成/申领响应中出现一次） */
+  code: string | null
   used: boolean
   remark: string | null
   fetchUser: string | null

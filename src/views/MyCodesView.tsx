@@ -7,6 +7,7 @@ import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
 import { FadeIn } from '@/components/FadeIn'
 import type { ActivationCode } from '@/types'
+import './MyCodesView.css'
 
 const { Text } = Typography
 
@@ -47,24 +48,30 @@ export default function MyCodesView() {
       title: '#',
       width: 64,
       align: 'center',
-      // 跨页连续序号：第 2 页从上一页结束编号继续（如每页 20 条，则第 2 页从 21 开始）
       render: (_: unknown, __: ActivationCode, index: number) => (page - 1) * pageSize + index + 1,
     },
     {
       title: '激活码',
       dataIndex: 'code',
-      render: (value: string) => <span className="code-chip">{value}</span>,
+      render: (value: string | null) =>
+        value ? (
+          <span className="code-chip">{value}</span>
+        ) : (
+          <span className="code-chip code-chip--placeholder">哈希码·无明文</span>
+        ),
     },
     {
       title: '获取时间',
       width: 180,
-      render: (_: unknown, row: ActivationCode) => <Text type="secondary">{formatTime(row.fetchTime)}</Text>,
+      render: (_: unknown, row: ActivationCode) => (
+        <Text type="secondary">{row.fetchTime ? formatTime(row.fetchTime) : '—'}</Text>
+      ),
     },
     {
       title: '操作',
       width: 100,
       render: (_: unknown, row: ActivationCode) => (
-        <Button size="small" type="default" onClick={() => void copyCode(row.code)}>
+        <Button size="small" type="default" disabled={!row.code} onClick={() => void copyCode(row.code!)}>
           复制
         </Button>
       ),
@@ -85,6 +92,7 @@ export default function MyCodesView() {
           <Table<ActivationCode>
             rowKey="id"
             columns={columns}
+            className="my-codes-table"
             dataSource={list}
             loading={loading}
             bordered
@@ -92,7 +100,7 @@ export default function MyCodesView() {
             pagination={false}
           />
           {totalPages > 1 && (
-            <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <div className="my-codes-pagination">
               <Pagination
                 current={page}
                 pageSize={pageSize}

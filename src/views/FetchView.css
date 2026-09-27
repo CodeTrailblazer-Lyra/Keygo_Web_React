@@ -1,30 +1,53 @@
-/* 统计卡片网格（等价于 Vue 版 n-grid cols="3" x-gap=12 y-gap=12） */
+/* 统计卡片网格 */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
 .stat-card {
-  border-radius: 14px;
+  border-radius: var(--card-radius) !important;
+  border: 1px solid var(--card-border) !important;
+}
+
+.stat-card .ant-card-body {
+  padding: 20px !important;
 }
 
 .stat-card-inner {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .stat-icon {
-  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  font-size: 24px;
+}
+
+.stat-icon--green {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+.stat-icon--orange {
+  background: rgba(234, 88, 12, 0.1);
+  color: #ea580c;
 }
 
 .stat-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  color: #0f172a;
-  line-height: 1.1;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .stat-value-green {
@@ -37,16 +60,25 @@
 
 .stat-label {
   font-size: 13px;
-  color: #64748b;
-  margin-top: 2px;
+  color: var(--text-secondary);
+  margin-top: 4px;
 }
 
-.claim-card {
-  border-radius: 14px;
+/* 公告卡片 */
+.announcement-list {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .announcement-item {
-  border-radius: 14px;
+  border-radius: 8px !important;
+}
+
+.announcement-item .ant-alert-message {
+  padding: 4px 0;
+  line-height: 1.5;
 }
 
 .announcement-text {
@@ -54,42 +86,84 @@
   width: 100%;
 }
 
+/* 申领卡片 */
+.claim-card {
+  border-radius: var(--card-radius) !important;
+  border: 1px solid var(--card-border) !important;
+}
+
+.claim-card .ant-card-body {
+  padding: 24px !important;
+}
+
+.claim-section {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.claim-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--primary);
+}
+
+.claim-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.claim-desc {
+  color: var(--text-secondary);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+/* 申领弹窗 */
 .claim-modal-body {
   text-align: center;
-  padding: 12px 0;
+  padding: 16px 0;
 }
 
 .claim-modal-icon {
   font-size: 48px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  color: var(--primary);
 }
 
 .claim-modal-text {
   font-size: 16px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .claim-modal-sub {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
 }
 
-/* ===== 使用单位选择（可选，默认为空） ===== */
 .claim-unit-field {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  margin: 16px 0 4px;
+  gap: 8px;
+  margin: 20px 0 4px;
   text-align: left;
 }
 
 .claim-unit-label {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .claim-modal-error {
@@ -100,7 +174,15 @@
 
 .claim-result-icon {
   font-size: 56px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.claim-result-icon--success {
+  color: #16a34a;
+}
+
+.claim-result-icon--error {
+  color: #ef4444;
 }
 
 .claim-modal-footer {
@@ -108,64 +190,120 @@
   justify-content: center;
   align-items: center;
   gap: 12px;
-  padding-bottom: 8px;
+  padding-top: 8px;
 }
 
-/* ===== 暗色主题 ===== */
+/* 激活码展示 */
+.claim-code-display {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  padding: 16px 24px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border-radius: 12px;
+  display: inline-block;
+  white-space: nowrap;
+  max-width: 100%;
+  user-select: all;
+  border: 1px solid #bbf7d0;
+  animation: pop-in 0.3s ease-out;
+}
+
+/* 暗色主题 */
+html[data-theme='dark'] .stat-icon {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+html[data-theme='dark'] .stat-icon--green {
+  background: rgba(22, 163, 74, 0.15);
+}
+
+html[data-theme='dark'] .stat-icon--orange {
+  background: rgba(234, 88, 12, 0.15);
+}
+
 html[data-theme='dark'] .stat-value {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
-html[data-theme='dark'] .stat-label {
-  color: #94a3b8;
+html[data-theme='dark'] .claim-icon {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
 }
 
 html[data-theme='dark'] .claim-modal-text {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 html[data-theme='dark'] .claim-modal-sub {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 html[data-theme='dark'] .claim-unit-label {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
-/* ===== 移动端适配 ===== */
-@media (max-width: 768px) {
-  .stat-card-inner {
-    flex-direction: column;
-    gap: 2px;
-    align-items: center;
-    text-align: center;
-  }
+html[data-theme='dark'] .claim-code-display {
+  background: rgba(22, 163, 74, 0.15);
+  color: #4ade80;
+  border-color: rgba(22, 163, 74, 0.3);
+}
 
-  /* 与查询界面统计样式对齐：隐藏图标，仅保留数值 + 标签 */
-  .stat-icon {
-    display: none;
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .stats-grid {
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .stat-card .ant-card-body {
-    padding: 10px 8px !important;
+    padding: 14px !important;
+  }
+
+  .stat-card-inner {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
   }
 
   .stat-value {
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .stat-label {
     font-size: 12px;
-    margin-top: 0;
+    margin-top: 2px;
+  }
+
+  .claim-section {
+    padding: 24px 12px;
+  }
+
+  .claim-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+  }
+
+  .claim-title {
+    font-size: 18px;
   }
 
   .claim-modal-body {
-    padding: 8px 0;
+    padding: 12px 0;
   }
 
   .claim-modal-icon {
     font-size: 40px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   .claim-result-icon {
@@ -179,5 +317,11 @@ html[data-theme='dark'] .claim-unit-label {
   .claim-modal-sub,
   .claim-modal-error {
     font-size: 13px;
+  }
+
+  .claim-code-display {
+    font-size: 16px;
+    letter-spacing: 1px;
+    padding: 12px 16px;
   }
 }

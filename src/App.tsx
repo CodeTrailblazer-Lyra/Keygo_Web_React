@@ -1,4 +1,5 @@
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd'
+import zhCN from 'antd/es/locale/zh_CN'
 import { MotionConfig } from 'motion/react'
 import { BrowserRouter, useNavigate } from 'react-router'
 import { registerNavigate } from '@/router/navigation'
@@ -31,6 +32,7 @@ export default function App() {
   const isDark = useThemeStore((s) => s.isDark)
   return (
     <ConfigProvider
+      locale={zhCN}
       theme={{
         algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: { colorPrimary: '#6366f1', borderRadius: 6 },

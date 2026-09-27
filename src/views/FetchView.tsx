@@ -14,10 +14,8 @@ import { FadeIn } from '@/components/FadeIn'
 import { AnimatedNumber } from '@/components/AnimatedNumber'
 import './FetchView.css'
 
-/** 上次申领所选使用单位的持久化 key（localStorage，刷新页面后仍生效） */
 const LAST_UNIT_KEY = 'keygo-last-claim-unit'
 
-/** 读取上次申领所选单位；隐私模式等异常场景返回空串 */
 function readLastUnit(): string {
   try {
     return localStorage.getItem(LAST_UNIT_KEY) ?? ''
@@ -26,13 +24,12 @@ function readLastUnit(): string {
   }
 }
 
-/** 记住本次申领所选单位；清空选择时清除记录（下次默认为空） */
 function saveLastUnit(name: string): void {
   try {
     if (name) localStorage.setItem(LAST_UNIT_KEY, name)
     else localStorage.removeItem(LAST_UNIT_KEY)
   } catch {
-    /* localStorage 不可用时静默忽略，不影响申领主流程 */
+    /* localStorage 不可用时静默忽略 */
   }
 }
 
@@ -40,8 +37,6 @@ export default function FetchView() {
   const [stats, setStats] = useState({ total: 0, available: 0, used: 0 })
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
-  // 使用单位（可选）：默认回填上次申领所选单位（localStorage 持久化），
-  // 选中后随申领提交并由后端写入激活码备注；初次使用无记录时默认为空
   const [units, setUnits] = useState<UsageUnit[]>([])
   const [unit, setUnit] = useState('')
 
@@ -85,12 +80,11 @@ export default function FetchView() {
     }
   }
 
-  /** 加载使用单位选项；失败时静默降级为空列表，不阻塞主流程 */
   async function loadUnits() {
     try {
       setUnits(await listUnits())
     } catch {
-      /* 使用单位为可选功能，加载失败仅意味着下拉无可选项 */
+      /* 使用单位为可选功能 */
     }
   }
 
@@ -101,7 +95,6 @@ export default function FetchView() {
     setClaimedCode('')
     setClaimError('')
     setCodeFontSize(20)
-    // 默认回填上次申领所选单位；记录的单位已不存在（被删除）时回退为空
     const last = readLastUnit()
     setUnit(units.some((u) => u.name === last) ? last : '')
     setShowClaimModal(true)
@@ -110,10 +103,8 @@ export default function FetchView() {
   async function doClaim() {
     setClaiming(true)
     try {
-      // 选中使用单位时提交该值（后端写入备注）；未选择时不传，备注保持原样
       const chosen = unit.trim()
       const result = await claimCode(chosen || undefined)
-      // 申领成功后记住本次所选单位，作为下次打开弹窗的默认值
       saveLastUnit(chosen)
       setClaimDone(true)
       setClaimOk(true)
@@ -140,7 +131,6 @@ export default function FetchView() {
     void loadUnits()
   }, [])
 
-  // 弹窗关闭后兜底清理可能残留的遮罩层与滚动锁定，确保页面交互恢复正常
   useModalOverlayCleanup(showClaimModal)
 
   useLayoutEffect(() => {
@@ -162,7 +152,6 @@ export default function FetchView() {
         <p className="page-subtitle">点击按钮获取一个可用的激活码</p>
       </div>
 
-      {/* 公告仅展示内容；visible=false 的公告由管理页控制、此处不渲染 */}
       {announcements.filter((a) => a.visible !== false).length > 0 && (
         <AnimatedList className="announcement-list" effect="right">
           {announcements
@@ -181,10 +170,10 @@ export default function FetchView() {
       )}
 
       <FadeIn className="stats-grid" delay={0.04} effect="fade" animateOnMount={false}>
-        <Card className="stat-card" styles={{ body: { padding: 20 } }} variant="outlined">
+        <Card className="stat-card" variant="outlined">
           <div className="stat-card-inner">
             <span className="stat-icon">
-              <AppIcon name="package" size={28} />
+              <AppIcon name="package" size={24} />
             </span>
             <div>
               <AnimatedNumber value={stats.total} className="stat-value" />
@@ -192,10 +181,10 @@ export default function FetchView() {
             </div>
           </div>
         </Card>
-        <Card className="stat-card" styles={{ body: { padding: 20 } }} variant="outlined">
+        <Card className="stat-card" variant="outlined">
           <div className="stat-card-inner">
-            <span className="stat-icon">
-              <AppIcon name="check-circle" size={28} />
+            <span className="stat-icon stat-icon--green">
+              <AppIcon name="check-circle" size={24} />
             </span>
             <div>
               <AnimatedNumber value={stats.available} className="stat-value stat-value-green" />
@@ -203,10 +192,10 @@ export default function FetchView() {
             </div>
           </div>
         </Card>
-        <Card className="stat-card" styles={{ body: { padding: 20 } }} variant="outlined">
+        <Card className="stat-card" variant="outlined">
           <div className="stat-card-inner">
-            <span className="stat-icon">
-              <AppIcon name="map-pin" size={28} />
+            <span className="stat-icon stat-icon--orange">
+              <AppIcon name="map-pin" size={24} />
             </span>
             <div>
               <AnimatedNumber value={stats.used} className="stat-value stat-value-orange" />
@@ -216,10 +205,10 @@ export default function FetchView() {
         </Card>
       </FadeIn>
 
-      <Card className="claim-card" styles={{ body: { padding: 20 } }} variant="outlined">
+      <Card className="claim-card" variant="outlined">
         <div className="claim-section">
           <div className="claim-icon">
-            <AppIcon name="key" size={36} />
+            <AppIcon name="key" size={32} />
           </div>
           <h3 className="claim-title">获取激活码</h3>
           <p className="claim-desc">
@@ -269,8 +258,8 @@ export default function FetchView() {
           <div className="claim-modal-body">
             {claimOk ? (
               <>
-                <div className="claim-result-icon">
-                  <AppIcon name="check-circle" size={40} />
+                <div className="claim-result-icon claim-result-icon--success">
+                  <AppIcon name="check-circle" size={48} />
                 </div>
                 <p className="claim-modal-text">恭喜，您已成功获取：</p>
                 <div
@@ -283,8 +272,8 @@ export default function FetchView() {
               </>
             ) : (
               <>
-                <div className="claim-result-icon">
-                  <AppIcon name="alert-circle" size={40} />
+                <div className="claim-result-icon claim-result-icon--error">
+                  <AppIcon name="alert-circle" size={48} />
                 </div>
                 <p className="claim-modal-text">获取失败</p>
                 <p className="claim-modal-error">{claimError}</p>

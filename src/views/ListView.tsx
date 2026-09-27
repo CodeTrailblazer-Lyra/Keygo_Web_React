@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, KeyboardEvent } from 'react'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -108,6 +108,15 @@ export default function ListView() {
   const [batchClaimDone, setBatchClaimDone] = useState(false)
   const [batchClaimResult, setBatchClaimResult] = useState<BatchClaimResult | null>(null)
 
+  /** 延迟挂载重型表格：等待页面过渡动画完成后再渲染 antd Table，避免与入场动画争抢主线程导致卡顿 */
+  const [tableReady, setTableReady] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      startTransition(() => setTableReady(true))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   /** 拉取全量激活码（穿透分页），转为本地筛选，确保 激活码/备注/获取人 三字段统一搜索覆盖全部数据 */
   async function loadAllCodes() {
     setLoading(true)
@@ -123,10 +132,12 @@ export default function ListView() {
         }
         for (const r of await Promise.all(batch)) collected.push(...r.codes)
       }
-      setAllCodes(collected)
-      const available = collected.filter((c) => !c.used).length
-      setListStats({ total: collected.length, available, used: collected.length - available })
-      setRefreshToken((t) => t + 1)
+      startTransition(() => {
+        setAllCodes(collected)
+        const available = collected.filter((c) => !c.used).length
+        setListStats({ total: collected.length, available, used: collected.length - available })
+        setRefreshToken((t) => t + 1)
+      })
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     } finally {
@@ -179,7 +190,7 @@ export default function ListView() {
     }
   }, [])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     updateFilterIndicator()
   }, [updateFilterIndicator, filter])
 
@@ -216,7 +227,7 @@ export default function ListView() {
       if (filter === 'used' && !c.used) return false
       if (filter === 'unused' && c.used) return false
       if (kw) {
-        const haystack = `${c.code} ${c.remark ?? ''} ${c.fetchUser ?? ''}`.toLowerCase()
+        const haystack = `${c.code ?? ''} ${c.remark ?? ''} ${c.fetchUser ?? ''}`.toLowerCase()
         if (!haystack.includes(kw)) return false
       }
       return true
@@ -340,7 +351,8 @@ export default function ListView() {
 
   function startEditRemark(row: ActivationCode) {
     setEditingRemarkId(row.id)
-    setEditingRemarkText(row.remark || '')
+    const remark = row.remark
+    setEditingRemarkText(remark && remark.toUpperCase() !== 'FALSE' ? remark : '')
   }
 
   async function saveRemark(id: number) {
@@ -479,24 +491,30 @@ export default function ListView() {
     {
       title: '激活码',
       dataIndex: 'code',
-      render: (value: string) => (
-        <span
-          className="code-chip"
-          role="button"
-          tabIndex={0}
-          title="点击复制"
-          onClick={() => void copyCode(value)}
-          onMouseDown={(e) => e.preventDefault()}
-          onKeyDown={(e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              void copyCode(value)
-            }
-          }}
-        >
-          {value}
-        </span>
-      ),
+      // code 为 null：哈希码不落明文，展示中性占位且不带任何复制交互
+      render: (value: string | null) =>
+        value ? (
+          <span
+            className="code-chip"
+            role="button"
+            tabIndex={0}
+            title="点击复制"
+            onClick={() => void copyCode(value)}
+            onMouseDown={(e) => e.preventDefault()}
+            onKeyDown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                void copyCode(value)
+              }
+            }}
+          >
+            {value}
+          </span>
+        ) : (
+          <span className="code-chip code-chip--placeholder" title="哈希码不存明文，无法查看或复制">
+            哈希码·无明文
+          </span>
+        ),
     },
     {
       title: '状态',
@@ -519,8 +537,10 @@ export default function ListView() {
     },
     {
       title: '备注',
-      render: (_: unknown, row: ActivationCode) =>
-        editingRemarkId === row.id ? (
+      render: (_: unknown, row: ActivationCode) => {
+        const remark = row.remark
+        const isEmpty = !remark || remark.toUpperCase() === 'FALSE'
+        return editingRemarkId === row.id ? (
           <Input
             size="small"
             value={editingRemarkText}
@@ -536,9 +556,10 @@ export default function ListView() {
             onClick={() => startEditRemark(row)}
             title="点击编辑备注"
           >
-            {row.remark || '—'}
+            {isEmpty ? '—' : remark}
           </Text>
-        ),
+        )
+      },
     },
     {
       title: '创建时间',
@@ -617,7 +638,7 @@ export default function ListView() {
         <div className="list-empty">
           <AppIcon name="package" size={48} />
           <p className="list-empty-title">暂无激活码数据</p>
-          <p className="list-empty-desc">点击上方「导入激活码」或「批量使用」开始添加</p>
+          <p className="list-empty-desc">点击上方「导入激活码」开始添加</p>
         </div>
       )
     }
@@ -710,7 +731,7 @@ export default function ListView() {
             </span>
             <div className="action-text">
               <div className="action-title">导入激活码</div>
-              <div className="action-desc">Excel 批量导入</div>
+              <div className="action-desc">文件批量导入</div>
             </div>
             <span className="action-arrow">
               <AppIcon name="arrow-right" size={18} />
@@ -738,7 +759,7 @@ export default function ListView() {
             </span>
             <div className="action-text">
               <div className="action-title">导出列表</div>
-              <div className="action-desc">导出当前列表为 Excel</div>
+              <div className="action-desc">导出当前列表为表格</div>
             </div>
             <span className="action-arrow">
               <AppIcon name="arrow-right" size={18} />
@@ -855,32 +876,40 @@ export default function ListView() {
         </div>
 
         <div className="table-scroll" ref={tableRef}>
-          <Table<ActivationCode>
-            rowKey="id"
-            columns={columns}
-            dataSource={paged}
-            loading={loading}
-            bordered
-            tableLayout="auto"
-            scroll={{ x: 'max-content' }}
-            pagination={false}
-            locale={{ emptyText: emptyNode }}
-            onRow={(record) => ({
-              onTouchStart: () => {
-                if (isMobile) startLongPress(record)
-              },
-              onTouchMove: () => cancelLongPress(),
-              onTouchEnd: () => cancelLongPress(),
-              onContextMenu: (e) => {
-                if (isMobile) e.preventDefault()
-              },
-            })}
-            rowSelection={{
-              type: 'checkbox',
-              selectedRowKeys: selectedIds,
-              onChange: (keys) => setSelectedIds(keys as number[]),
-            }}
-          />
+          {tableReady ? (
+            <Table<ActivationCode>
+              rowKey="id"
+              columns={columns}
+              dataSource={paged}
+              loading={loading}
+              bordered
+              tableLayout="auto"
+              scroll={{ x: 'max-content' }}
+              pagination={false}
+              locale={{ emptyText: emptyNode }}
+              onRow={(record) => ({
+                onTouchStart: () => {
+                  if (isMobile) startLongPress(record)
+                },
+                onTouchMove: () => cancelLongPress(),
+                onTouchEnd: () => cancelLongPress(),
+                onContextMenu: (e) => {
+                  if (isMobile) e.preventDefault()
+                },
+              })}
+              rowSelection={{
+                type: 'checkbox',
+                selectedRowKeys: selectedIds,
+                onChange: (keys) => setSelectedIds(keys as number[]),
+              }}
+            />
+          ) : (
+            <div className="table-placeholder-loading">
+              <div className="ant-table-placeholder">
+                <span className="ant-empty-text">加载中...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {total > 0 && (
@@ -907,11 +936,13 @@ export default function ListView() {
       <Modal
         open={showImportModal}
         onCancel={() => setShowImportModal(false)}
-        title="Excel 导入"
+        title="文件导入"
         footer={null}
         width={440}
         closable
         maskClosable={false}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
       >
         <div
           className={`drop-zone${dragOver ? ' drag-over' : ''}`}
@@ -981,6 +1012,8 @@ export default function ListView() {
         width={440}
         closable
         maskClosable={false}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
       >
         {!batchClaimDone ? (
           <div>

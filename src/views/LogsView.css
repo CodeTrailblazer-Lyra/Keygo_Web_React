@@ -1,0 +1,40 @@
+/* ===== 操作日志 ===== */
+.logs-table .ant-table-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.logs-table .ant-table-cell {
+  white-space: nowrap;
+}
+
+.logs-table .ant-table-tbody > tr:hover > td {
+  background: #f5f7ff;
+}
+
+.logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+/* ===== 暗色主题 ===== */
+html[data-theme='dark'] .logs-table .ant-table-thead > tr > th {
+  background: rgba(30, 41, 59, 0.65);
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .logs-table .ant-table-tbody > tr:hover > td {
+  background: rgba(99, 102, 241, 0.09);
+}
+
+/* ===== 移动端 ===== */
+@media (max-width: 768px) {
+  .logs-table .ant-table-content {
+    overflow-x: auto;
+  }
+}

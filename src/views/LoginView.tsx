@@ -18,12 +18,10 @@ export default function LoginView() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [registerLoading, setRegisterLoading] = useState(false)
 
-  // 登录表单
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [remember, setRemember] = useState(false)
 
-  // 注册表单
   const [regUsername, setRegUsername] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
@@ -86,7 +84,7 @@ export default function LoginView() {
       key: 'login',
       label: tabTitle('user', '登录'),
       children: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
           <Input
             placeholder="请输入用户名"
             value={loginUsername}
@@ -124,7 +122,7 @@ export default function LoginView() {
       key: 'register',
       label: tabTitle('user', '注册'),
       children: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
           <Input
             placeholder="用户名（2-50字符）"
             value={regUsername}
@@ -167,13 +165,13 @@ export default function LoginView() {
       <FadeIn className="login-wrapper">
         <div className="brand-area">
           <div className="brand-logo">
-            <AppIcon name="key" size={26} />
+            <AppIcon name="key" size={28} />
           </div>
           <h1 className="brand-title">KeyGo</h1>
           <p className="brand-subtitle">激活码分发管理系统</p>
         </div>
 
-        <Card className="login-card" styles={{ body: { padding: 32 } }}>
+        <Card className="login-card">
           <Tabs
             className="login-tabs"
             activeKey={activeTab}

@@ -7,6 +7,7 @@ import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError } from '@/utils/messageBridge'
 import { FadeIn } from '@/components/FadeIn'
 import type { OperationLog } from '@/types'
+import './LogsView.css'
 
 const { Text } = Typography
 
@@ -80,6 +81,7 @@ export default function LogsView() {
           <Table<OperationLog>
             rowKey="id"
             columns={columns}
+            className="logs-table"
             dataSource={list}
             loading={loading}
             bordered
@@ -87,7 +89,7 @@ export default function LogsView() {
             pagination={false}
           />
           {totalPages > 1 && (
-            <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <div className="logs-pagination">
               <Pagination
                 current={page}
                 pageSize={size}

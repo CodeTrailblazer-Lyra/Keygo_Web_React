@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { Button, Dropdown, Tag } from 'antd'
+import { Avatar, Button, Dropdown, Tag } from 'antd'
 import { selectIsAdmin, selectRole, selectUsername, useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { roleLabel, roleTagColor } from '@/utils'
@@ -36,12 +36,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const [pendingCount, setPendingCount] = useState(0)
 
-  /* ===== 移动端判断 ===== */
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT,
   )
-
-  const mobileTabRef = useRef<HTMLDivElement>(null)
 
   const activeKey = location.pathname.replace(/^\//, '')
 
@@ -94,7 +91,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void checkPending()
-    // 标签页隐藏时暂停轮询（避免后台空耗请求），回到前台立即刷新一次
     const pollTimer = setInterval(() => {
       if (!document.hidden) void checkPending()
     }, 30000)
@@ -108,7 +104,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [checkPending])
 
-  /* ===== 移动端 resize 监听 ===== */
   useEffect(() => {
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     function onResize() {
@@ -123,43 +118,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (resizeTimer) clearTimeout(resizeTimer)
     }
   }, [])
-
-  /* ===== 滑动指示器 ===== */
-  const desktopNavRef = useRef<HTMLElement>(null)
-  const [desktopIndicator, setDesktopIndicator] = useState({ x: 0, w: 0, show: false })
-  const [mobileIndicator, setMobileIndicator] = useState({ x: 0, w: 0, show: false })
-
-  const updateIndicators = useCallback(() => {
-    if (desktopNavRef.current && !isMobile) {
-      const active = desktopNavRef.current.querySelector('.desktop-nav-item.active') as HTMLElement | null
-      if (active) {
-        setDesktopIndicator({ x: active.offsetLeft, w: active.offsetWidth, show: true })
-      } else {
-        setDesktopIndicator((p) => ({ ...p, show: false }))
-      }
-    } else {
-      setDesktopIndicator((p) => (p.show ? { ...p, show: false } : p))
-    }
-    if (mobileTabRef.current && isMobile) {
-      const active = mobileTabRef.current.querySelector('.mobile-tab-item.active') as HTMLElement | null
-      if (active) {
-        setMobileIndicator({ x: active.offsetLeft, w: active.offsetWidth, show: true })
-      } else {
-        setMobileIndicator((p) => ({ ...p, show: false }))
-      }
-    } else {
-      setMobileIndicator((p) => (p.show ? { ...p, show: false } : p))
-    }
-  }, [isMobile])
-
-  useLayoutEffect(() => {
-    updateIndicators()
-  }, [updateIndicators, activeKey, isAdmin, pendingCount])
-
-  useEffect(() => {
-    window.addEventListener('resize', updateIndicators)
-    return () => window.removeEventListener('resize', updateIndicators)
-  }, [updateIndicators])
 
   const userMenuItems = [
     { key: 'info', label: username, disabled: true },
@@ -187,22 +145,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         {!isMobile && (
-          <nav className="desktop-nav" ref={desktopNavRef}>
-            <div
-              className="nav-glass-indicator"
-              style={{
-                transform: `translateX(${desktopIndicator.x}px)`,
-                width: `${desktopIndicator.w}px`,
-                opacity: desktopIndicator.show ? '1' : '0',
-              }}
-            />
+          <nav className="desktop-nav">
             {menuOptions.map((opt) => (
               <Link
                 key={opt.key}
                 className={`desktop-nav-item${activeKey === opt.key ? ' active' : ''}`}
                 to={`/${opt.key}`}
               >
-                <AppIcon name={opt.icon} size={18} />
+                <AppIcon name={opt.icon} size={16} />
                 <span>{opt.label}</span>
               </Link>
             ))}
@@ -224,9 +174,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               type="text"
               aria-label="切换主题"
               title="切换主题"
-              style={{ padding: isMobile ? 6 : 4, display: 'inline-flex', alignItems: 'center' }}
+              style={{ padding: isMobile ? 8 : 6, display: 'inline-flex', alignItems: 'center' }}
             >
-              <AppIcon name="palette" size={isMobile ? 20 : 16} />
+              <AppIcon name="palette" size={isMobile ? 18 : 16} />
             </Button>
           </Dropdown>
           <Dropdown
@@ -235,15 +185,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             menu={{ items: userMenuItems, onClick: ({ key }) => handleUserMenu(key as string) }}
           >
             {!isMobile ? (
-              <Button type="text" style={{ fontWeight: 500, gap: 6 }}>
-                <AppIcon name="user" size={16} />
-                <span>{username}</span>
-                <Tag color={roleTagColor(role)}>{roleLabel(role)}</Tag>
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
+                <Avatar size={28} style={{ background: '#6366f1' }}>
+                  {username.charAt(0).toUpperCase()}
+                </Avatar>
+                <span style={{ fontWeight: 500, fontSize: 14 }}>{username}</span>
+                <Tag color={roleTagColor(role)} style={{ marginLeft: 0 }}>{roleLabel(role)}</Tag>
+              </div>
             ) : (
-              <Button type="text" style={{ padding: 6 }}>
-                <AppIcon name="user" size={20} />
-              </Button>
+              <Avatar size={32} style={{ background: '#6366f1' }}>
+                {username.charAt(0).toUpperCase()}
+              </Avatar>
             )}
           </Dropdown>
         </div>
@@ -251,15 +203,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       {/* 移动端：底部 Tab Bar */}
       {isMobile && (
-        <div className="mobile-tab-bar" ref={mobileTabRef}>
-          <div
-            className="tab-glass-indicator"
-            style={{
-              transform: `translateX(${mobileIndicator.x}px)`,
-              width: `${mobileIndicator.w}px`,
-              opacity: mobileIndicator.show ? '1' : '0',
-            }}
-          />
+        <div className="mobile-tab-bar">
           {menuOptions.map((opt) => (
             <Link
               key={opt.key}

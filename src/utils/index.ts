@@ -93,6 +93,7 @@ export function actionLabel(action: string): string {
     DELETE: '删除激活码',
     BATCH_DELETE: '批量删除',
     IMPORT: '导入激活码',
+    GENERATE: '生成激活码',
     PUBLISH_ANNOUNCEMENT: '发布公告',
     USER_APPROVE: '用户通过',
     USER_REJECT: '用户拒绝',
