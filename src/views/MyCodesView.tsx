@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table'
-import { Button, Card, Pagination, Table, Typography } from 'antd'
+import { Button, Card, Pagination, Table, Tag, Typography } from 'antd'
 import { myCodes } from '@/api/codes'
 import { copyText, formatTime } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
@@ -22,10 +22,10 @@ export default function MyCodesView() {
     setLoading(true)
     try {
       const data = await myCodes(p, size)
-      setList(data.codes)
+      setList(data.items)
       setPage(p)
       setPageSize(size)
-      setTotal(data.total)
+      setTotal(data.totalElements)
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     } finally {
@@ -53,11 +53,21 @@ export default function MyCodesView() {
     {
       title: '激活码',
       dataIndex: 'code',
-      render: (value: string | null) =>
-        value ? (
-          <span className="code-chip">{value}</span>
+      render: (value: string) => (
+        <span className="code-chip" title={value}>
+          {value}
+        </span>
+      ),
+    },
+    {
+      title: '状态',
+      width: 100,
+      align: 'center',
+      render: (_: unknown, row: ActivationCode) =>
+        row.status === '已使用' ? (
+          <Tag color="red">已使用</Tag>
         ) : (
-          <span className="code-chip code-chip--placeholder">哈希码·无明文</span>
+          <Tag color="green">未使用</Tag>
         ),
     },
     {
@@ -71,7 +81,7 @@ export default function MyCodesView() {
       title: '操作',
       width: 100,
       render: (_: unknown, row: ActivationCode) => (
-        <Button size="small" type="default" disabled={!row.code} onClick={() => void copyCode(row.code!)}>
+        <Button size="small" type="default" onClick={() => void copyCode(row.code)}>
           复制
         </Button>
       ),

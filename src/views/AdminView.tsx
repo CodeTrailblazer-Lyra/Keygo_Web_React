@@ -310,7 +310,7 @@ export default function AdminView() {
     setImportingUnits(true)
     try {
       const result = await importUnitsApi(file)
-      messageSuccess(`导入完成，共导入 ${result.imported} 个使用单位`)
+      messageSuccess(`导入完成，共添加 ${result.added} 个使用单位${result.skipped ? `，跳过 ${result.skipped} 个重复项` : ''}`)
       await loadUnits()
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))

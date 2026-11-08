@@ -17,10 +17,10 @@ import {
   LockOutlined,
   ExclamationCircleOutlined,
   CloseCircleOutlined,
-  EllipsisOutlined,
   BgColorsOutlined,
   NotificationOutlined,
   RightOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons'
 
 export type IconName =
@@ -41,10 +41,10 @@ export type IconName =
   | 'lock'
   | 'alert-circle'
   | 'x-circle'
-  | 'more'
   | 'palette'
   | 'notification'
   | 'arrow-right'
+  | 'shield'
 
 interface AppIconProps {
   name: IconName
@@ -71,10 +71,10 @@ const iconMap: Record<IconName, ComponentType<{ style?: CSSProperties; className
   lock: LockOutlined,
   'alert-circle': ExclamationCircleOutlined,
   'x-circle': CloseCircleOutlined,
-  more: EllipsisOutlined,
   palette: BgColorsOutlined,
   notification: NotificationOutlined,
   'arrow-right': RightOutlined,
+  shield: SafetyCertificateOutlined,
 }
 
 /**

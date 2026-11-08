@@ -49,7 +49,7 @@
 /* ===== 快捷操作卡片 ===== */
 .action-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -745,4 +745,43 @@ html[data-theme='dark'] .action-sheet-item.danger:hover {
 html[data-theme='dark'] .action-sheet-item.cancel {
   color: #94a3b8;
   border-top-color: rgba(148, 163, 184, 0.18);
+}
+
+/* ===== 官方验证详情弹窗 ===== */
+.official-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.official-details-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.official-details-label {
+  flex-shrink: 0;
+  min-width: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 24px;
+}
+
+.official-details-row .code-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+/* 全量验证加载动画 */
+.action-spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

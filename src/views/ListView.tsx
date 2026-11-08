@@ -27,6 +27,9 @@ import {
   listCodes,
   markUnused,
   markUsed,
+  officialCheckAll,
+  officialCheckOne,
+  officialCheckRunning,
   updateRemark,
 } from '@/api/codes'
 import { copyText, formatTime } from '@/utils'
@@ -34,7 +37,7 @@ import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
 import { appConfirm } from '@/utils/antdAppBridge'
 import { releaseModalOverlay } from '@/utils/modalScrollLock'
-import type { ActivationCode, BatchClaimResult, CodeListResult } from '@/types'
+import type { ActivationCode, BatchClaimResult, AdminCodeListResponse, OfficialInfo } from '@/types'
 import { AnimatedNumber } from '@/components/AnimatedNumber'
 import './ListView.css'
 
@@ -108,6 +111,15 @@ export default function ListView() {
   const [batchClaimDone, setBatchClaimDone] = useState(false)
   const [batchClaimResult, setBatchClaimResult] = useState<BatchClaimResult | null>(null)
 
+  /* ===== 官方验证 ===== */
+  const [officialChecking, setOfficialChecking] = useState(false)
+  const [officialRunning, setOfficialRunning] = useState(false)
+  const [officialDetail, setOfficialDetail] = useState<{
+    code: ActivationCode
+    info: OfficialInfo
+  } | null>(null)
+  const [verifyingId, setVerifyingId] = useState<number | null>(null)
+
   /** 延迟挂载重型表格：等待页面过渡动画完成后再渲染 antd Table，避免与入场动画争抢主线程导致卡顿 */
   const [tableReady, setTableReady] = useState(false)
   useEffect(() => {
@@ -117,25 +129,24 @@ export default function ListView() {
     return () => cancelAnimationFrame(id)
   }, [])
 
-  /** 拉取全量激活码（穿透分页），转为本地筛选，确保 激活码/备注/获取人 三字段统一搜索覆盖全部数据 */
+  /** 拉取全量激活码（穿透分页），转为本地筛选，确保 备注/获取人 等字段统一搜索覆盖全部数据 */
   async function loadAllCodes() {
     setLoading(true)
     try {
       const first = await listCodes({ status: '', page: 1, size: FETCH_PAGE_SIZE })
-      const pages = Math.min(Math.max(1, first.totalPages || 1), MAX_FETCH_PAGES)
-      const collected: ActivationCode[] = [...first.codes]
+      const pages = Math.min(Math.max(1, first.codes.totalPages || 1), MAX_FETCH_PAGES)
+      const collected: ActivationCode[] = [...first.codes.items]
       // 其余页按批次并行拉取（保持页序），此前逐页串行 await，页数多时加载耗时成倍增加
       for (let start = 2; start <= pages; start += FETCH_CONCURRENCY) {
-        const batch: Promise<CodeListResult>[] = []
+        const batch: Promise<AdminCodeListResponse>[] = []
         for (let p = start; p <= Math.min(pages, start + FETCH_CONCURRENCY - 1); p++) {
           batch.push(listCodes({ status: '', page: p, size: FETCH_PAGE_SIZE }))
         }
-        for (const r of await Promise.all(batch)) collected.push(...r.codes)
+        for (const r of await Promise.all(batch)) collected.push(...r.codes.items)
       }
       startTransition(() => {
         setAllCodes(collected)
-        const available = collected.filter((c) => !c.used).length
-        setListStats({ total: collected.length, available, used: collected.length - available })
+        setListStats(first.stats)
         setRefreshToken((t) => t + 1)
       })
     } catch (err) {
@@ -147,6 +158,8 @@ export default function ListView() {
 
   useEffect(() => {
     void loadAllCodes()
+    // 检查是否有进行中的官方验证任务
+    void officialCheckRunning().then(setOfficialRunning).catch(() => {})
   }, [])
 
   /**
@@ -220,12 +233,12 @@ export default function ListView() {
     setPage(1)
   }
 
-  // 多条件组合筛选：状态（全部/未使用/已使用）+ 统一关键词（激活码/备注/获取人），纯前端、实时更新
+  // 多条件组合筛选：状态（全部/未使用/已使用）+ 统一关键词（备注/获取人），纯前端、实时更新
   const filtered = useMemo(() => {
     const kw = searchText.trim().toLowerCase()
     return allCodes.filter((c) => {
-      if (filter === 'used' && !c.used) return false
-      if (filter === 'unused' && c.used) return false
+      if (filter === 'used' && c.status !== '已使用') return false
+      if (filter === 'unused' && c.status !== '未使用') return false
       if (kw) {
         const haystack = `${c.code ?? ''} ${c.remark ?? ''} ${c.fetchUser ?? ''}`.toLowerCase()
         if (!haystack.includes(kw)) return false
@@ -405,10 +418,10 @@ export default function ListView() {
     }
     setImporting(true)
     try {
-      await importExcel(importFile)
-      setImportResult('导入完成')
+      const result = await importExcel(importFile)
+      setImportResult(`导入完成，实际导入 ${result.count} 条，跳过 ${result.skipped} 条`)
       setImportOk(true)
-      messageSuccess('导入成功')
+      messageSuccess(`导入成功，共导入 ${result.count} 条`)
       await loadAllCodes()
     } catch (err: unknown) {
       const msg = getErrorMessage(err)
@@ -457,7 +470,7 @@ export default function ListView() {
       setBatchClaimDone(true)
       setBatchClaimResult(res)
       messageSuccess(`成功获取 ${res.count} 个激活码`)
-      setListStats({ available: res.available, used: res.used, total: res.total })
+      setListStats(res.stats)
     } catch (err: unknown) {
       setBatchClaimDone(true)
       setBatchClaimResult(null)
@@ -482,6 +495,61 @@ export default function ListView() {
     else messageWarning('复制失败，请手动复制')
   }
 
+  /* ===== 官方验证辅助 ===== */
+
+  /** 根据官方状态文案返回对应 Tag 颜色 */
+  function officialTagColor(text: string): string {
+    switch (text) {
+      case '已使用':
+        return 'green'
+      case '未使用':
+        return 'orange'
+      case '无效码':
+        return 'red'
+      case '查询异常':
+        return 'gold'
+      default:
+        return 'default'
+    }
+  }
+
+  /** 单码验证（直接执行，显示加载状态，完成后弹出详情） */
+  async function doVerifyOne(row: ActivationCode) {
+    setVerifyingId(row.id)
+    try {
+      const updated = await officialCheckOne(row.id)
+      messageSuccess(`“${updated.code}” 验证完成：${updated.official?.useStatusText ?? '未验证'}`)
+      await loadAllCodes()
+      // 验证完成后自动弹出详情窗口
+      if (updated.official) {
+        setOfficialDetail({ code: updated, info: updated.official })
+      }
+    } catch (err) {
+      if (!isHandledError(err)) messageError(getErrorMessage(err))
+    } finally {
+      setVerifyingId(null)
+    }
+  }
+
+  /** 全量验证 */
+  async function doVerifyAll() {
+    setOfficialChecking(true)
+    try {
+      const res = await officialCheckAll()
+      setOfficialRunning(true)
+      messageSuccess(res.accepted ? `已提交全量验证任务，共 ${res.total} 条` : '全量验证任务未被接受')
+    } catch (err) {
+      if (!isHandledError(err)) messageError(getErrorMessage(err))
+    } finally {
+      setOfficialChecking(false)
+    }
+  }
+
+  /** 打开官方详情弹窗 */
+  function openOfficialDetail(row: ActivationCode) {
+    if (row.official) setOfficialDetail({ code: row, info: row.official })
+  }
+
   const columns: ColumnsType<ActivationCode> = [
     {
       title: '#',
@@ -491,14 +559,14 @@ export default function ListView() {
     {
       title: '激活码',
       dataIndex: 'code',
-      // code 为 null：哈希码不落明文，展示中性占位且不带任何复制交互
-      render: (value: string | null) =>
+      // 激活码明文展示，完整显示一行，点击复制
+      render: (value: string) =>
         value ? (
           <span
             className="code-chip"
             role="button"
             tabIndex={0}
-            title="点击复制"
+            title={`点击复制：${value}`}
             onClick={() => void copyCode(value)}
             onMouseDown={(e) => e.preventDefault()}
             onKeyDown={(e: KeyboardEvent) => {
@@ -511,8 +579,8 @@ export default function ListView() {
             {value}
           </span>
         ) : (
-          <span className="code-chip code-chip--placeholder" title="哈希码不存明文，无法查看或复制">
-            哈希码·无明文
+          <span className="code-chip code-chip--placeholder" title="无激活码">
+            —
           </span>
         ),
     },
@@ -520,7 +588,7 @@ export default function ListView() {
       title: '状态',
       align: 'center',
       render: (_: unknown, row: ActivationCode) =>
-        row.used ? (
+        row.status === '已使用' ? (
           <Tag color="red" className="status-tag">
             已使用
           </Tag>
@@ -529,6 +597,25 @@ export default function ListView() {
             未使用
           </Tag>
         ),
+    },
+    {
+      title: '官方状态',
+      align: 'center',
+      render: (_: unknown, row: ActivationCode) => {
+        const off = row.official
+        const text = off?.useStatusText ?? '未验证'
+        return (
+          <Tag
+            color={officialTagColor(text)}
+            className="status-tag"
+            style={off ? { cursor: 'pointer' } : undefined}
+            onClick={() => off && openOfficialDetail(row)}
+            title={off ? '点击查看官方详情' : undefined}
+          >
+            {text}
+          </Tag>
+        )
+      },
     },
     {
       title: '获取人',
@@ -568,9 +655,9 @@ export default function ListView() {
       ),
     },
     {
-      title: '获取时间',
+      title: '使用时间',
       render: (_: unknown, row: ActivationCode) => (
-        <Text type="secondary">{row.fetchTime ? formatTime(row.fetchTime) : '—'}</Text>
+        <Text type="secondary">{row.official?.useTime ? formatTime(row.official.useTime) : '—'}</Text>
       ),
     },
     ...(isMobile
@@ -578,12 +665,12 @@ export default function ListView() {
       : [
           {
             title: '操作',
-            width: 140,
+            width: 180,
             align: 'center' as const,
             fixed: 'right' as const,
             render: (_: unknown, row: ActivationCode) => {
               const actions = []
-              if (!row.used) {
+              if (row.status !== '已使用') {
                 actions.push(
                   <Button
                     key="use"
@@ -608,6 +695,18 @@ export default function ListView() {
                   </Button>,
                 )
               }
+              actions.push(
+                <Button
+                  key="verify"
+                  size="small"
+                  type="default"
+                  icon={<AppIcon name="shield" size={14} />}
+                  loading={verifyingId === row.id}
+                  onClick={() => void doVerifyOne(row)}
+                >
+                 验证
+                </Button>,
+              )
               if (isSuperAdmin) {
                 actions.push(
                   <Button
@@ -794,6 +893,38 @@ export default function ListView() {
             </span>
           </div>
         </Card>
+        <Card
+          className="action-card"
+          styles={{ body: { padding: 18 } }}
+          variant="outlined"
+          role="button"
+          tabIndex={0}
+          aria-label="全量验证"
+          onClick={() => void doVerifyAll()}
+          onKeyDown={(e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              void doVerifyAll()
+            }
+          }}
+        >
+          <div className="action-card-inner">
+            <span className="action-icon action-icon--brand">
+              <AppIcon name="shield" size={24} />
+            </span>
+            <div className="action-text">
+              <div className="action-title">全量验证</div>
+              <div className="action-desc">{officialRunning ? '任务进行中…' : '向官方批量验证全部激活码'}</div>
+            </div>
+            <span className="action-arrow">
+              {officialChecking ? (
+                <span className="action-spin">⌛</span>
+              ) : (
+                <AppIcon name="arrow-right" size={18} />
+              )}
+            </span>
+          </div>
+        </Card>
       </div>
 
       <Card className="table-card" styles={{ body: { padding: 20 } }} variant="outlined">
@@ -822,7 +953,7 @@ export default function ListView() {
             <Input
               value={searchText}
               onChange={onSearchChange}
-              placeholder="搜索激活码 / 备注 / 获取人"
+              placeholder="搜索备注 / 获取人"
               allowClear
               className="toolbar-search"
               prefix={<AppIcon name="search" size={16} />}
@@ -1095,7 +1226,7 @@ export default function ListView() {
       >
         {actionMenuRow && (
           <div className="action-sheet-list">
-            {!actionMenuRow.used && (
+            {actionMenuRow.status !== '已使用' && (
               <button
                 type="button"
                 className="action-sheet-item"
@@ -1105,7 +1236,7 @@ export default function ListView() {
                 <span>使用</span>
               </button>
             )}
-            {actionMenuRow.used && isSuperAdmin && (
+            {actionMenuRow.status === '已使用' && isSuperAdmin && (
               <button
                 type="button"
                 className="action-sheet-item"
@@ -1127,11 +1258,78 @@ export default function ListView() {
             )}
             <button
               type="button"
+              className="action-sheet-item"
+              onClick={() => {
+                setActionMenuRow(null)
+                void doVerifyOne(actionMenuRow)
+              }}
+            >
+              <AppIcon name="shield" size={18} />
+              <span>验证</span>
+            </button>
+            <button
+              type="button"
               className="action-sheet-item cancel"
               onClick={() => setActionMenuRow(null)}
             >
               <span>取消</span>
             </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* 官方验证详情弹窗 */}
+      <Modal
+        open={!!officialDetail}
+        onCancel={() => setOfficialDetail(null)}
+        title="官方验证详情"
+        footer={[
+          <Button key="close" onClick={() => setOfficialDetail(null)}>
+            关闭
+          </Button>,
+        ]}
+        width={480}
+        destroyOnClose
+        afterClose={releaseModalOverlay}
+      >
+        {officialDetail && (
+          <div className="official-detail">
+            <div className="official-details-row">
+              <span className="official-details-label">激活码：</span>
+              <span className="code-chip" style={{ cursor: 'default' }}>
+                {officialDetail.code.code}
+              </span>
+            </div>
+            <div className="official-details-row">
+              <span className="official-details-label">官方状态：</span>
+              <Tag color={officialTagColor(officialDetail.info.useStatusText)}>
+                {officialDetail.info.useStatusText}
+              </Tag>
+            </div>
+            {officialDetail.info.product && (
+              <div className="official-details-row">
+                <span className="official-details-label">产品名称：</span>
+                <Text>{officialDetail.info.product}</Text>
+              </div>
+            )}
+            {officialDetail.info.device && (
+              <div className="official-details-row">
+                <span className="official-details-label">设备信息：</span>
+                <Text>{officialDetail.info.device}</Text>
+              </div>
+            )}
+            {officialDetail.info.useTime && (
+              <div className="official-details-row">
+                <span className="official-details-label">官方激活时间：</span>
+                <Text type="secondary">{formatTime(officialDetail.info.useTime)}</Text>
+              </div>
+            )}
+            {officialDetail.info.checkedAt && (
+              <div className="official-details-row">
+                <span className="official-details-label">最后验证时间：</span>
+                <Text type="secondary">{formatTime(officialDetail.info.checkedAt)}</Text>
+              </div>
+            )}
           </div>
         )}
       </Modal>

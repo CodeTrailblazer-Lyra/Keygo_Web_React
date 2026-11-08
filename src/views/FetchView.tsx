@@ -7,7 +7,7 @@ import { copyText } from '@/utils'
 import { getErrorMessage, isHandledError } from '@/api/request'
 import { messageError, messageSuccess, messageWarning } from '@/utils/messageBridge'
 import { releaseModalOverlay, useModalOverlayCleanup } from '@/utils/modalScrollLock'
-import type { Announcement, UsageUnit } from '@/types'
+import type { Announcement, StatsResponse, UsageUnit } from '@/types'
 import AppIcon from '@/components/AppIcon'
 import { AnimatedItem, AnimatedList } from '@/components/AnimatedList'
 import { FadeIn } from '@/components/FadeIn'
@@ -34,11 +34,11 @@ function saveLastUnit(name: string): void {
 }
 
 export default function FetchView() {
-  const [stats, setStats] = useState({ total: 0, available: 0, used: 0 })
+  const [stats, setStats] = useState<StatsResponse>({ total: 0, available: 0, used: 0 })
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
   const [units, setUnits] = useState<UsageUnit[]>([])
-  const [unit, setUnit] = useState('')
+  const [unitName, setUnitName] = useState('')
 
   const [showClaimModal, setShowClaimModal] = useState(false)
   const [claiming, setClaiming] = useState(false)
@@ -74,7 +74,7 @@ export default function FetchView() {
   async function loadStats() {
     try {
       const data = await getStats()
-      setStats({ total: data.total, available: data.available, used: data.used })
+      setStats(data)
     } catch (err) {
       if (!isHandledError(err)) messageError(getErrorMessage(err))
     }
@@ -96,20 +96,20 @@ export default function FetchView() {
     setClaimError('')
     setCodeFontSize(20)
     const last = readLastUnit()
-    setUnit(units.some((u) => u.name === last) ? last : '')
+    setUnitName(units.some((u) => u.name === last) ? last : '')
     setShowClaimModal(true)
   }
 
   async function doClaim() {
     setClaiming(true)
     try {
-      const chosen = unit.trim()
+      const chosen = unitName.trim()
       const result = await claimCode(chosen || undefined)
       saveLastUnit(chosen)
       setClaimDone(true)
       setClaimOk(true)
-      setClaimedCode(result.code || '')
-      setStats({ available: result.available, used: result.used, total: result.total })
+      setClaimedCode(result.code)
+      setStats(result.stats)
     } catch (err) {
       setClaimDone(true)
       setClaimOk(false)
@@ -240,19 +240,21 @@ export default function FetchView() {
             <p className="claim-modal-sub">
               当前可用：<strong>{stats.available}</strong> 个
             </p>
-            <div className="claim-unit-field">
-              <span className="claim-unit-label">使用单位（可选）</span>
-              <Select
-                value={unit}
-                onChange={(v) => setUnit(v ?? '')}
-                options={[
-                  { label: '不选择（留空）', value: '' },
-                  ...units.map((u) => ({ label: u.name, value: u.name })),
-                ]}
-                notFoundContent="暂无可选单位"
-                style={{ width: '100%' }}
-              />
-            </div>
+            {units.length > 0 && (
+              <div className="claim-unit-field">
+                <span className="claim-unit-label">使用单位（可选）</span>
+                <Select
+                  value={unitName}
+                  onChange={(v) => setUnitName(v ?? '')}
+                  options={[
+                    { label: '不选择（留空）', value: '' },
+                    ...units.map((u) => ({ label: u.name, value: u.name })),
+                  ]}
+                  notFoundContent="暂无可选单位"
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="claim-modal-body">

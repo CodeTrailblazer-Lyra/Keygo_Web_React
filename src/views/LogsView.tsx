@@ -22,7 +22,7 @@ export default function LogsView() {
     setLoading(true)
     try {
       const data = await logs(p, s)
-      setList(data.logs)
+      setList(data.items)
       setPage(p)
       setSize(s)
       setTotal(data.totalElements)

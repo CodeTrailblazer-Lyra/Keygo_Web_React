@@ -1,10 +1,22 @@
 import request from './request'
-import type { Announcement, LogListResult } from '@/types'
+import type { ActivationLog, Announcement, OperationLog, PageResponse } from '@/types'
 
 /** 操作日志列表（分页，仅管理员） */
-export async function logs(page: number, size: number): Promise<LogListResult> {
-  const res = await request.get<LogListResult>('/api/v1/admin/codes/logs', {
+export async function logs(page: number, size: number): Promise<PageResponse<OperationLog>> {
+  const res = await request.get<PageResponse<OperationLog>>('/api/v1/admin/codes/logs', {
     params: { page, size },
+  })
+  return res.data
+}
+
+/** 核销审计日志（分页，管理员） */
+export async function redeemLogs(
+  page: number,
+  size: number,
+  result?: string,
+): Promise<PageResponse<ActivationLog>> {
+  const res = await request.get<PageResponse<ActivationLog>>('/api/v1/admin/codes/redeem-logs', {
+    params: { page, size, result },
   })
   return res.data
 }
